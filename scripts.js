@@ -1,4 +1,4 @@
-alert('SCRIPT ATUALIZADO CARREGADO! Versão 2'); // <-- ESTA É A LINHA DE TESTE
+
 
 document.addEventListener('DOMContentLoaded', function() {
     
