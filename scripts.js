@@ -1,26 +1,32 @@
-// Espera o documento HTML ser completamente carregado para então executar o código
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Seleciona os elementos principais com os quais vamos trabalhar
+    // Função para formatar números como moeda (R$)
+    function formatarMoeda(valor) {
+        const numero = parseFloat(String(valor).replace(',', '.'));
+        if (isNaN(numero)) {
+            return valor;
+        }
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(numero);
+    }
+    
+    // Seleciona os elementos principais
     const addButton = document.querySelector('.btn-add');
     const searchInput = document.querySelector('.search-bar input');
     const tableBody = document.querySelector('.inventory-table tbody');
 
-    // ==========================================================
-    // PARTE 1: LÓGICA PARA ADICIONAR UMA NOVA PEÇA
-    // ==========================================================
+    // Lógica para Adicionar Peça
     addButton.addEventListener('click', function() {
-        // Insere uma nova linha no topo da tabela (índice 0)
         const newRow = tableBody.insertRow(0);
-        newRow.classList.add('new-row-editing'); // Adiciona uma classe para identificar que é uma linha nova
-
-        // Insere 7 células na nova linha
+        newRow.classList.add('new-row-editing');
         newRow.innerHTML = `
             <td><input type="text" class="edit-input" placeholder="Código"></td>
             <td><input type="text" class="edit-input" placeholder="Nome da Peça"></td>
             <td><input type="text" class="edit-input" placeholder="Marca"></td>
             <td><input type="text" class="edit-input" placeholder="Quantidade"></td>
-            <td><input type="text" class="edit-input" placeholder="Preço (R$)"></td>
+            <td><input type="text" class="edit-input" placeholder="Preço (Ex: 70 ou 45,50)"></td>
             <td><input type="text" class="edit-input" placeholder="Localização"></td>
             <td class="actions">
                 <button class="btn-action btn-save-new" title="Salvar"><i class="fa fa-check"></i></button>
@@ -29,58 +35,50 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     });
 
-
-    // ==========================================================
-    // PARTE 2: LÓGICA PARA BUSCAR/FILTRAR PEÇAS
-    // ==========================================================
+    // Lógica da Busca
     searchInput.addEventListener('keyup', function() {
-        const searchTerm = searchInput.value.toLowerCase(); // Pega o texto digitado e converte para minúsculo
-        const rows = tableBody.querySelectorAll('tr'); // Pega todas as linhas da tabela
-
+        const searchTerm = searchInput.value.toLowerCase();
+        const rows = tableBody.querySelectorAll('tr');
         rows.forEach(row => {
-            // Pega o texto da primeira (Código) e segunda (Nome) célula de cada linha
             const codeCell = row.cells[0].innerText.toLowerCase();
             const nameCell = row.cells[1].innerText.toLowerCase();
-
-            // Se o texto buscado estiver incluso no código OU no nome, mostra a linha, senão, esconde.
             if (codeCell.includes(searchTerm) || nameCell.includes(searchTerm)) {
-                row.style.display = ''; // '' reverte para o display padrão (table-row)
+                row.style.display = '';
             } else {
-                row.style.display = 'none'; // 'none' esconde o elemento
+                row.style.display = 'none';
             }
         });
     });
 
-
-    // ==========================================================
-    // PARTE 3: LÓGICA PARA OS BOTÕES DE AÇÃO (EDITAR, EXCLUIR, SALVAR, CANCELAR)
-    // ==========================================================
+    // Lógica para todos os botões de ação na tabela
     tableBody.addEventListener('click', function(event) {
         const target = event.target;
         const button = target.closest('.btn-action');
-
         if (!button) return;
-
         const row = button.closest('tr');
 
-        // --- LÓGICA PARA SALVAR UMA NOVA LINHA ---
+        // Salvar NOVA linha
         if (button.classList.contains('btn-save-new')) {
             const inputs = row.querySelectorAll('.edit-input');
             let isValid = true;
-            inputs.forEach(input => {
-                // Simples validação para não deixar campos vazios
-                if(input.value.trim() === '') {
-                    isValid = false;
+            inputs.forEach((input, index) => {
+                if (input.value.trim() === '') isValid = false;
+                
+                // ### CORREÇÃO APLICADA AQUI ###
+                // A célula (td) é o 'pai' do input.
+                const cell = input.parentElement;
+                if (index === 4) { // Se for a célula do preço (índice 4)
+                    cell.innerText = formatarMoeda(input.value);
+                } else {
+                    cell.innerText = input.value;
                 }
-                // Transforma o input de volta em texto
-                input.parentElement.innerText = input.value;
             });
 
             if (!isValid) {
                 alert('Por favor, preencha todos os campos da nova peça.');
-                 // Reverte para o estado de edição se a validação falhar
+                // Se for inválido, precisamos reconstruir os inputs para o usuário corrigir
                 row.querySelectorAll('td').forEach((cell, index) => {
-                    if (index < 6) { // Apenas nas células de dados
+                    if (index < 6) { 
                         const currentValue = cell.innerText;
                         cell.innerHTML = `<input type="text" class="edit-input" value="${currentValue}">`;
                     }
@@ -88,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Restaura os botões de ação padrão
             row.querySelector('.actions').innerHTML = `
                 <button class="btn-action btn-edit" title="Editar"><i class="fa fa-pencil"></i></button>
                 <button class="btn-action btn-delete" title="Excluir"><i class="fa fa-trash"></i></button>
@@ -96,26 +93,25 @@ document.addEventListener('DOMContentLoaded', function() {
             row.classList.remove('new-row-editing');
         }
 
-        // --- LÓGICA PARA CANCELAR UMA NOVA LINHA ---
+        // Cancelar NOVA linha
         if (button.classList.contains('btn-cancel-new')) {
-            row.remove(); // Simplesmente remove a linha que foi criada
+            row.remove();
         }
 
-
-        // As lógicas de Editar e Excluir existentes continuam aqui
-        // --- LÓGICA PARA EXCLUIR ---
+        // Excluir linha
         if (button.classList.contains('btn-delete')) {
             if (confirm('Tem certeza que deseja excluir esta peça?')) {
                 row.remove();
             }
         }
 
-        // --- LÓGICA PARA ENTRAR NO MODO DE EDIÇÃO ---
+        // Entrar no modo de EDIÇÃO
         if (button.classList.contains('btn-edit')) {
             const cells = row.querySelectorAll('td');
             for (let i = 0; i < cells.length - 1; i++) {
                 const cellText = cells[i].innerText;
-                cells[i].innerHTML = `<input type="text" class="edit-input" value="${cellText}">`;
+                const valueToEdit = (i === 4) ? cellText.replace(/[^0-9,.]/g, '').replace('.', ',') : cellText;
+                cells[i].innerHTML = `<input type="text" class="edit-input" value="${valueToEdit}">`;
             }
             const actionsCell = cells[cells.length - 1];
             actionsCell.innerHTML = `
@@ -124,13 +120,18 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }
 
-        // --- LÓGICA PARA SALVAR UMA EDIÇÃO EXISTENTE ---
+        // Salvar EDIÇÃO existente
         if (button.classList.contains('btn-save-edit')) {
             const inputs = row.querySelectorAll('.edit-input');
             const cells = row.querySelectorAll('td');
-            for (let i = 0; i < inputs.length; i++) {
-                cells[i].innerText = inputs[i].value;
-            }
+            inputs.forEach((input, index) => {
+                const cell = cells[index];
+                if (index === 4) { // Se for a célula do preço
+                    cell.innerText = formatarMoeda(input.value);
+                } else {
+                    cell.innerText = input.value;
+                }
+            });
             const actionsCell = cells[cells.length - 1];
             actionsCell.innerHTML = `
                 <button class="btn-action btn-edit" title="Editar"><i class="fa fa-pencil"></i></button>
@@ -138,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }
 
-        // --- LÓGICA PARA CANCELAR UMA EDIÇÃO EXISTENTE ---
+        // Cancelar EDIÇÃO existente
         if (button.classList.contains('btn-cancel-edit')) {
             const inputs = row.querySelectorAll('.edit-input');
             const cells = row.querySelectorAll('td');
