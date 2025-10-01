@@ -1,0 +1,212 @@
+/* ============================================== */
+/* === CSS PERSONALIZADO - AUTO PEÇAS CANADÁ === */
+/* ============================================== */
+
+/* --- Variáveis de Cor da Marca --- */
+:root {
+    --cor-amarelo: #FFC300; /* Amarelo principal da marca */
+    --cor-preto: #1a1a1a;   /* Preto/grafite para fundos escuros */
+    --cor-cinza-escuro: #333333;
+    --cor-cinza-claro: #f4f7fa;
+    --cor-branco: #ffffff;
+    --cor-vermelho: #e74c3c;
+}
+
+/* --- Configurações Globais --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* --- Body com a Imagem de Fundo --- */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #333;
+    line-height: 1.6;
+    
+    /* ESTAS SÃO AS LINHAS CORRETAS PARA A IMAGEM DE FUNDO */
+    background-image: url('images/background-loja.jpg'); /* Caminho para a sua imagem */
+    background-size: cover; /* Faz a imagem cobrir todo o fundo */
+    background-position: center center; /* Centraliza a imagem */
+    background-attachment: fixed; /* Mantém a imagem fixa ao rolar a página */
+    
+    /* Overlay escuro para melhorar a leitura do texto */
+    background-color: rgba(0, 0, 0, 0.6); /* Cor de fundo (preto) com 60% de transparência */
+    background-blend-mode: multiply; /* Mistura a cor de fundo com a imagem para escurecer */
+}
+
+/* --- Header --- */
+header {
+    background-color: var(--cor-preto); /* Header com fundo preto */
+    color: var(--cor-branco);
+    padding: 1.2rem 0;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+header h1 .fa-gears {
+    color: var(--cor-amarelo); /* Ícone da engrenagem amarelo */
+    margin-right: 10px;
+}
+
+/* --- Conteúdo Principal --- */
+main {
+    padding: 2.5rem 1rem;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: var(--cor-branco);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+/* --- Barra de Ferramentas (Busca e Botão) --- */
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.search-bar {
+    display: flex;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.search-bar input {
+    border: none;
+    padding: 0.75rem;
+    font-size: 1rem;
+    width: 250px;
+    outline: none;
+}
+
+.btn-search {
+    background-color: var(--cor-amarelo); /* Botão de busca amarelo */
+    border: none;
+    color: var(--cor-preto); /* Texto do botão preto para melhor contraste */
+    padding: 0 1rem;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.btn-search:hover {
+    background-color: #e6b000; /* Amarelo um pouco mais escuro */
+}
+
+/* --- Botão Adicionar --- */
+.btn-add {
+    background-color: var(--cor-amarelo); /* Botão de adicionar amarelo */
+    color: var(--cor-preto); /* Texto do botão preto */
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-add:hover {
+    background-color: #e6b000;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.btn-add .fa-plus {
+    margin-right: 8px;
+}
+
+/* --- Tabela de Estoque --- */
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.inventory-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.inventory-table th, .inventory-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.inventory-table thead {
+    background-color: var(--cor-preto); /* Cabeçalho da tabela preto */
+    color: var(--cor-amarelo); /* Texto do cabeçalho amarelo */
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.inventory-table tbody tr:nth-of-type(even) {
+    background-color: var(--cor-cinza-claro);
+}
+
+.inventory-table tbody tr:hover {
+    background-color: #e9ecef;
+}
+
+/* --- Botões de Ação na Tabela --- */
+.actions {
+    text-align: center;
+}
+
+.btn-action {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    margin: 0 5px;
+    padding: 5px;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.btn-edit, .btn-save-edit, .btn-save-new {
+    color: var(--cor-amarelo);
+}
+.btn-edit:hover, .btn-save-edit:hover, .btn-save-new:hover {
+    background-color: var(--cor-amarelo);
+    color: var(--cor-preto);
+}
+
+.btn-delete, .btn-cancel-edit, .btn-cancel-new {
+    color: var(--cor-vermelho);
+}
+.btn-delete:hover, .btn-cancel-edit:hover, .btn-cancel-new:hover {
+    background-color: var(--cor-vermelho);
+    color: var(--cor-branco);
+}
+
+/* --- Input de Edição --- */
+.edit-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+/* --- Footer --- */
+footer {
+    text-align: center;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    background-color: var(--cor-preto);
+    color: #a0a0a0;
+    font-size: 0.9rem;
+}
