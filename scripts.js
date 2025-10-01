@@ -1,3 +1,5 @@
+alert('SCRIPT ATUALIZADO CARREGADO! Versão 2'); // <-- ESTA É A LINHA DE TESTE
+
 document.addEventListener('DOMContentLoaded', function() {
     
     // Função para formatar números como moeda (R$)
@@ -64,10 +66,8 @@ document.addEventListener('DOMContentLoaded', function() {
             inputs.forEach((input, index) => {
                 if (input.value.trim() === '') isValid = false;
                 
-                // ### CORREÇÃO APLICADA AQUI ###
-                // A célula (td) é o 'pai' do input.
                 const cell = input.parentElement;
-                if (index === 4) { // Se for a célula do preço (índice 4)
+                if (index === 4) {
                     cell.innerText = formatarMoeda(input.value);
                 } else {
                     cell.innerText = input.value;
@@ -76,7 +76,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!isValid) {
                 alert('Por favor, preencha todos os campos da nova peça.');
-                // Se for inválido, precisamos reconstruir os inputs para o usuário corrigir
                 row.querySelectorAll('td').forEach((cell, index) => {
                     if (index < 6) { 
                         const currentValue = cell.innerText;
@@ -126,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const cells = row.querySelectorAll('td');
             inputs.forEach((input, index) => {
                 const cell = cells[index];
-                if (index === 4) { // Se for a célula do preço
+                if (index === 4) {
                     cell.innerText = formatarMoeda(input.value);
                 } else {
                     cell.innerText = input.value;
