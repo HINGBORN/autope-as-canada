@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', async function() {
     
-    const apiUrl = 'https://autopecascanada.onrender.com'; // URL da API online
+    const apiUrl = 'https://autopecascanada.onrender.com/pecas'; // URL da API online
     const tableBody = document.querySelector('.inventory-table tbody');
 
     function formatarMoeda(valor) {
