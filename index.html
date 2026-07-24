@@ -103,10 +103,15 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Seção de Gerenciamento de Fotos no Modo Edição -->
                     <div class="panel-section">
-                        <h3><i class="fa-solid fa-upload"></i> Atualizar Fotos</h3>
-                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Selecione novas fotos para
-                            substituir as antigas (Opcional).</p>
+                        <h3><i class="fa-solid fa-images"></i> Gerenciar Fotos Atuais</h3>
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Clique no "X" vermelho em cima
+                            da foto caso queira removê-la:</p>
+                        <div id="modalImagensEdicao" class="gallery-container mb-3"></div>
+
+                        <h3 style="margin-top: 15px;"><i class="fa-solid fa-upload"></i> Adicionar Novas Fotos</h3>
                         <input type="file" id="editImagens" accept="image/*" multiple class="form-control">
                     </div>
                 </div>
@@ -123,7 +128,7 @@
         </div>
     </div>
 
-    <!-- PAINEL LATERAL: ADICIONAR NOVA PEÇA (Layout Largo e Profissional) -->
+    <!-- PAINEL LATERAL: ADICIONAR NOVA PEÇA -->
     <div id="addModal" class="side-panel-overlay">
         <div class="side-panel side-panel-wide" id="addSidePanel">
             <div class="side-panel-header">

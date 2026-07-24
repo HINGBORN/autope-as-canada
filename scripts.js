@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     let listaDePecas = [];
     let idDaPecaAberta = null;
+    let imagensAtuaisEdicao = []; // Guarda as fotos que estão sendo editadas no painel
 
     // Elementos UI
     const modal = document.getElementById('detalhesModal');
@@ -241,6 +242,36 @@ document.addEventListener('DOMContentLoaded', async function () {
         document.getElementById('btnCancelarEdicao').style.display = 'block';
     }
 
+    function renderizarFotosEdicao() {
+        const container = document.getElementById('modalImagensEdicao');
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (imagensAtuaisEdicao.length === 0) {
+            container.innerHTML = '<p style="color: #888; font-size: 0.9rem;">Nenhuma foto vinculada atualmente.</p>';
+            return;
+        }
+
+        imagensAtuaisEdicao.forEach((url, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'img-thumb-wrapper';
+            wrapper.innerHTML = `
+                <img src="${url}" alt="Foto da Peça">
+                <button type="button" class="btn-delete-photo" title="Apagar esta foto"><i class="fa fa-times"></i></button>
+            `;
+
+            wrapper.querySelector('.btn-delete-photo').onclick = function () {
+                if (confirm("Deseja realmente apagar esta foto?")) {
+                    imagensAtuaisEdicao.splice(index, 1);
+                    renderizarFotosEdicao();
+                    showToast("Foto removida da lista. Clique em Salvar para efetivar.", "warning");
+                }
+            };
+
+            container.appendChild(wrapper);
+        });
+    }
+
     document.getElementById('btnHabilitarEdicao').onclick = function () {
         const peca = listaDePecas.find(p => p._id === idDaPecaAberta);
         if (peca) {
@@ -251,6 +282,15 @@ document.addEventListener('DOMContentLoaded', async function () {
             document.getElementById('editPreco').value = (peca.preco || 0).toString().replace('.', ',');
             document.getElementById('editLocalizacao').value = peca.localizacao || '';
             document.getElementById('editImagens').value = '';
+
+            // Carrega as fotos para o gerenciador individual de exclusão
+            imagensAtuaisEdicao = [];
+            if (peca.imagemUrl) imagensAtuaisEdicao.push(peca.imagemUrl);
+            if (peca.imagensUrls && peca.imagensUrls.length > 0) {
+                imagensAtuaisEdicao = [...peca.imagensUrls];
+            }
+
+            renderizarFotosEdicao();
             modoEdicao();
         }
     };
@@ -265,6 +305,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         formData.append('estoque', document.getElementById('editEstoque').value);
         formData.append('preco', document.getElementById('editPreco').value.replace(',', '.'));
         formData.append('localizacao', document.getElementById('editLocalizacao').value);
+
+        // Envia quais fotos o usuário decidiu manter após apagar algumas com o X
+        formData.append('imagensUrlsMantidas', JSON.stringify(imagensAtuaisEdicao));
 
         const fileInput = document.getElementById('editImagens');
         for (let i = 0; i < fileInput.files.length; i++) {
