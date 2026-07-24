@@ -1,56 +1,43 @@
-/* ============================================== */
-/* === CSS PERSONALIZADO - AUTO PEÇAS CANADÁ === */
-/* ============================================== */
-
-/* --- Variáveis de Cor da Marca --- */
 :root {
-    --cor-amarelo: #FFC300; /* Amarelo principal da marca */
-    --cor-preto: #1a1a1a;   /* Preto/grafite para fundos escuros */
+    --cor-amarelo: #FFC300;
+    --cor-preto: #1a1a1a;
     --cor-cinza-escuro: #333333;
     --cor-cinza-claro: #f4f7fa;
     --cor-branco: #ffffff;
     --cor-vermelho: #e74c3c;
 }
 
-/* --- Configurações Globais --- */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* --- Body com a Imagem de Fundo --- */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     color: #333;
     line-height: 1.6;
-    
-    /* ESTAS SÃO AS LINHAS CORRETAS PARA A IMAGEM DE FUNDO */
-    background-image: url('images/background-loja.jpg'); /* Caminho para a sua imagem */
-    background-size: cover; /* Faz a imagem cobrir todo o fundo */
-    background-position: center center; /* Centraliza a imagem */
-    background-attachment: fixed; /* Mantém a imagem fixa ao rolar a página */
-    
-    /* Overlay escuro para melhorar a leitura do texto */
-    background-color: rgba(0, 0, 0, 0.6); /* Cor de fundo (preto) com 60% de transparência */
-    background-blend-mode: multiply; /* Mistura a cor de fundo com a imagem para escurecer */
+    background-image: url('images/background-loja.jpg');
+    background-size: cover;
+    background-position: center center;
+    background-attachment: fixed;
+    background-color: rgba(0, 0, 0, 0.6);
+    background-blend-mode: multiply;
 }
 
-/* --- Header --- */
 header {
-    background-color: var(--cor-preto); /* Header com fundo preto */
+    background-color: var(--cor-preto);
     color: var(--cor-branco);
     padding: 1.2rem 0;
     text-align: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 header h1 .fa-gears {
-    color: var(--cor-amarelo); /* Ícone da engrenagem amarelo */
+    color: var(--cor-amarelo);
     margin-right: 10px;
 }
 
-/* --- Conteúdo Principal --- */
 main {
     padding: 2.5rem 1rem;
 }
@@ -61,10 +48,9 @@ main {
     background-color: var(--cor-branco);
     padding: 2rem;
     border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-/* --- Barra de Ferramentas (Busca e Botão) --- */
 .toolbar {
     display: flex;
     justify-content: space-between;
@@ -90,43 +76,25 @@ main {
 }
 
 .btn-search {
-    background-color: var(--cor-amarelo); /* Botão de busca amarelo */
+    background-color: var(--cor-amarelo);
     border: none;
-    color: var(--cor-preto); /* Texto do botão preto para melhor contraste */
+    color: var(--cor-preto);
     padding: 0 1rem;
     cursor: pointer;
     font-size: 1rem;
-    transition: background-color 0.3s ease;
 }
 
-.btn-search:hover {
-    background-color: #e6b000; /* Amarelo um pouco mais escuro */
-}
-
-/* --- Botão Adicionar --- */
 .btn-add {
-    background-color: var(--cor-amarelo); /* Botão de adicionar amarelo */
-    color: var(--cor-preto); /* Texto do botão preto */
+    background-color: var(--cor-amarelo);
+    color: var(--cor-preto);
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 5px;
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
 }
 
-.btn-add:hover {
-    background-color: #e6b000;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.btn-add .fa-plus {
-    margin-right: 8px;
-}
-
-/* --- Tabela de Estoque --- */
 .table-wrapper {
     overflow-x: auto;
 }
@@ -137,15 +105,16 @@ main {
     margin-top: 1rem;
 }
 
-.inventory-table th, .inventory-table td {
+.inventory-table th,
+.inventory-table td {
     padding: 12px 15px;
     text-align: left;
     border-bottom: 1px solid #e0e0e0;
 }
 
 .inventory-table thead {
-    background-color: var(--cor-preto); /* Cabeçalho da tabela preto */
-    color: var(--cor-amarelo); /* Texto do cabeçalho amarelo */
+    background-color: var(--cor-preto);
+    color: var(--cor-amarelo);
     font-size: 0.9rem;
     text-transform: uppercase;
 }
@@ -158,7 +127,17 @@ main {
     background-color: #e9ecef;
 }
 
-/* --- Botões de Ação na Tabela --- */
+.nome-clicavel {
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--cor-preto);
+}
+
+.nome-clicavel:hover {
+    color: var(--cor-amarelo);
+    text-decoration: underline;
+}
+
 .actions {
     text-align: center;
 }
@@ -173,75 +152,271 @@ main {
     border-radius: 50%;
     width: 35px;
     height: 35px;
-    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.btn-edit, .btn-save-edit, .btn-save-new {
-    color: var(--cor-amarelo);
-}
-.btn-edit:hover, .btn-save-edit:hover, .btn-save-new:hover {
-    background-color: var(--cor-amarelo);
-    color: var(--cor-preto);
-}
-
-.btn-delete, .btn-cancel-edit, .btn-cancel-new {
+.btn-delete {
     color: var(--cor-vermelho);
 }
-.btn-delete:hover, .btn-cancel-edit:hover, .btn-cancel-new:hover {
-    background-color: var(--cor-vermelho);
-    color: var(--cor-branco);
-}
 
-/* --- Input de Edição --- */
-.edit-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-/* --- Footer --- */
 footer {
     text-align: center;
     padding: 1.5rem;
     margin-top: 2rem;
     background-color: var(--cor-preto);
     color: #a0a0a0;
-    font-size: 0.9rem;
-} /* <-- ESTA CHAVE ESTAVA FALTANDO */
-
-/* --- Estilos do Modal --- */
-.modal {
-    display: none; 
-    position: fixed; 
-    z-index: 1000; 
-    left: 0;
-    top: 0;
-    width: 100%; 
-    height: 100%; 
-    background-color: rgba(0,0,0,0.7); 
 }
 
-.modal-content {
-    background-color: var(--cor-branco);
-    margin: 10% auto; 
-    padding: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 500px;
-    text-align: center;
-    position: relative;
+/* ========================================== */
+/* === PAINÉIS LATERAIS (SIDE PANELS) ======= */
+/* ========================================== */
+.side-panel-overlay {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.side-panel {
+    position: absolute;
+    right: -600px;
+    top: 0;
+    width: 100%;
+    max-width: 450px;
+    height: 100vh;
+    background-color: var(--cor-cinza-claro);
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+    transition: right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.side-panel-wide {
+    max-width: 550px;
+}
+
+/* Painel de Adicionar é mais largo */
+.side-panel.open {
+    right: 0;
+}
+
+.side-panel-header {
+    background-color: var(--cor-preto);
+    color: var(--cor-amarelo);
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.side-panel-header h2 {
+    font-size: 1.2rem;
+    margin: 0;
 }
 
 .close-btn {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
+    color: var(--cor-branco);
+    font-size: 1.5rem;
     cursor: pointer;
 }
 
 .close-btn:hover {
     color: var(--cor-vermelho);
+}
+
+.side-panel-content {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.panel-section {
+    background-color: var(--cor-branco);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.panel-section h3 {
+    font-size: 1rem;
+    color: var(--cor-preto);
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--cor-amarelo);
+    padding-bottom: 5px;
+}
+
+.info-grid p {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.info-grid p strong {
+    color: var(--cor-cinza-escuro);
+}
+
+.gallery-container {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+
+.gallery-container img {
+    width: 180px;
+    height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid #ddd;
+    flex-shrink: 0;
+}
+
+/* FORMS GRID (Para deixar o layout empresarial) */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-group {
+    text-align: left;
+}
+
+.form-group.full-width {
+    grid-column: span 2;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--cor-cinza-escuro);
+    margin-bottom: 4px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.form-control:focus {
+    border-color: var(--cor-amarelo);
+    outline: none;
+}
+
+.form-control.input-error {
+    border-color: #e74c3c;
+    background-color: #fdf2f1;
+}
+
+.side-panel-footer {
+    background-color: var(--cor-branco);
+    padding: 1.5rem;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-edit-panel {
+    background-color: var(--cor-cinza-escuro);
+    color: white;
+}
+
+.btn-save-panel {
+    background-color: #27ae60;
+    color: white;
+}
+
+.btn-cancel-panel {
+    background-color: #e74c3c;
+    color: white;
+}
+
+/* ========================================== */
+/* === SISTEMA DE NOTIFICAÇÕES (TOAST) ====== */
+/* ========================================== */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    padding: 15px 25px;
+    background-color: #333;
+    color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    animation: slideIn 0.3s ease forwards;
+    transition: opacity 0.3s ease;
+    border-left: 5px solid #333;
+}
+
+.toast.success {
+    border-left-color: #2ecc71;
+}
+
+.toast.error {
+    border-left-color: #e74c3c;
+}
+
+.toast.warning {
+    border-left-color: #f1c40f;
+}
+
+.toast i {
+    font-size: 1.2rem;
+}
+
+.toast.success i {
+    color: #2ecc71;
+}
+
+.toast.error i {
+    color: #e74c3c;
+}
+
+.toast.warning i {
+    color: #f1c40f;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
