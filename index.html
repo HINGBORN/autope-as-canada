@@ -12,8 +12,20 @@
 
 <body>
 
-    <header>
-        <h1><i class="fa-solid fa-gears"></i> Controle de Estoque Canada Auto Peças</h1>
+    <!-- CABEÇALHO MODERNO E FLUTUANTE COM A NOVA LOGO -->
+    <header class="app-header">
+        <div class="logo-container">
+            <div class="logo-icon">
+                <img src="images/favicon.jpg" alt="Logo Canada Auto Peças">
+            </div>
+            <div class="brand-text">
+                <h1>Canada Auto Peças</h1>
+                <span>Sistema de Controle de Estoque</span>
+            </div>
+        </div>
+        <div class="user-profile">
+            <span class="badge-admin"><i class="fa-solid fa-user-shield"></i> Admin</span>
+        </div>
     </header>
 
     <main>
@@ -21,10 +33,12 @@
             <!-- Barra de Ferramentas e Filtros -->
             <div class="toolbar">
                 <div class="search-group">
+                    <!-- BARRA DE PESQUISA MODERNA SEM O BOTÃO -->
                     <div class="search-bar">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
                         <input type="text" id="searchInput" placeholder="Buscar por nome ou código...">
-                        <button class="btn-search"><i class="fa fa-search"></i></button>
                     </div>
+
                     <select id="filtroMarca" class="filter-select">
                         <option value="">Todas as Marcas</option>
                     </select>
@@ -39,15 +53,24 @@
                         style="font-size:0.75rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:3px; margin-left:5px;">F2</span></button>
             </div>
 
+            <!-- Empty State (Tela inicial vazia) -->
+            <div id="emptyState" class="empty-state">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <h2>Pronto para pesquisar</h2>
+                <p>Utilize a barra de busca ou os filtros acima para encontrar peças no estoque.</p>
+                <button id="btnVerTodos" class="btn btn-outline-light mt-3"><i class="fa-solid fa-list-ul"></i> Ver
+                    Todos os Produtos</button>
+            </div>
+
             <!-- Dashboard Métricas Rápidas -->
-            <div class="dashboard-metrics" id="dashboardMetrics">
+            <div class="dashboard-metrics" id="dashboardMetrics" style="display: none;">
                 <span><i class="fa-solid fa-boxes-stacked"></i> Exibindo: <strong id="countPecas">0</strong>
                     peças</span>
-                <span><i class="fa-solid fa-wallet"></i> Valor Total no Estoque: <strong id="valorTotalEstoque">R$
+                <span><i class="fa-solid fa-wallet"></i> Valor Total da Pesquisa: <strong id="valorTotalEstoque">R$
                         0,00</strong></span>
             </div>
 
-            <div class="table-wrapper">
+            <div class="table-wrapper" id="tableWrapper" style="display: none;">
                 <table class="inventory-table">
                     <thead>
                         <tr>
@@ -73,7 +96,7 @@
             cadastrar nova peça e <strong>Esc</strong> para fechar telas.</p>
     </footer>
 
-    <!-- MODAL FLUTUANTE CENTRALIZADO: DETALHES E EDIÇÃO -->
+    <!-- MODAL DE DETALHES E EDIÇÃO -->
     <div id="detalhesModal" class="side-panel-overlay">
         <div class="side-panel side-panel-wide" id="sidePanel">
             <div class="side-panel-header">
@@ -82,7 +105,6 @@
             </div>
 
             <div class="side-panel-content">
-                <!-- MODO DE VISUALIZAÇÃO -->
                 <div id="painelVisualizacao">
                     <div class="panel-section">
                         <h3><i class="fa-solid fa-circle-info"></i> Informações Gerais</h3>
@@ -94,7 +116,6 @@
                     </div>
                 </div>
 
-                <!-- MODO DE EDIÇÃO -->
                 <div id="painelEdicao" style="display: none;">
                     <div class="panel-section">
                         <h3><i class="fa-solid fa-pen"></i> Editar Informações</h3>
@@ -127,7 +148,6 @@
                         </div>
                     </div>
 
-                    <!-- Seção de Gerenciamento de Fotos no Modo Edição -->
                     <div class="panel-section">
                         <h3><i class="fa-solid fa-images"></i> Gerenciar Fotos Atuais</h3>
                         <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Clique no "X" vermelho em cima
@@ -155,7 +175,7 @@
         </div>
     </div>
 
-    <!-- MODAL FLUTUANTE CENTRALIZADO: ADICIONAR NOVA PEÇA -->
+    <!-- MODAL ADICIONAR NOVA PEÇA -->
     <div id="addModal" class="side-panel-overlay">
         <div class="side-panel side-panel-wide" id="addSidePanel">
             <div class="side-panel-header">
@@ -238,9 +258,7 @@
         <option value="Kia">
     </datalist>
 
-    <!-- Container para Notificações -->
     <div id="toastContainer" class="toast-container"></div>
-
     <script src="scripts.js"></script>
 </body>
 

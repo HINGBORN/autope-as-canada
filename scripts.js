@@ -9,13 +9,17 @@ document.addEventListener('DOMContentLoaded', async function () {
     let listaDePecas = [];
     let idDaPecaAberta = null;
     let imagensAtuaisEdicao = [];
+    let forcarMostrarTodos = false;
 
-    // Elementos UI
     const modal = document.getElementById('detalhesModal');
     const addModal = document.getElementById('addModal');
 
+    const emptyState = document.getElementById('emptyState');
+    const tableWrapper = document.getElementById('tableWrapper');
+    const dashboardMetrics = document.getElementById('dashboardMetrics');
+
     // ==========================================
-    // SISTEMA DE TOASTS (NOTIFICAÇÕES)
+    // SISTEMA DE NOTIFICAÇÕES (TOAST)
     // ==========================================
     function showToast(message, type = 'success') {
         const container = document.getElementById('toastContainer');
@@ -42,8 +46,51 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // ==========================================
-    // ATALHOS DE TECLADO (F2 e ESC)
+    // NOVO: COMPRESSOR DE IMAGENS ULTRARRÁPIDO
     // ==========================================
+    async function comprimirImagem(file, maxWidth = 1024, maxHeight = 1024, quality = 0.7) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Calcula a nova dimensão mantendo a proporção
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Converte para um arquivo menor (Blob)
+                    canvas.toBlob((blob) => {
+                        const newFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        resolve(newFile);
+                    }, 'image/jpeg', quality);
+                };
+            };
+        });
+    }
+
     document.addEventListener('keydown', function (event) {
         if (event.key === 'F2') {
             event.preventDefault();
@@ -53,6 +100,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             fecharPainel();
             fecharAddPainel();
         }
+    });
+
+    document.getElementById('btnVerTodos').addEventListener('click', () => {
+        forcarMostrarTodos = true;
+        searchInput.value = '';
+        filtroMarca.value = '';
+        filtroPreco.value = '';
+        aplicarFiltros();
     });
 
     function abrirModalAdicionar() {
@@ -70,9 +125,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         addModal.style.display = 'flex';
     }
 
-    // ==========================================
-    // ATUALIZAR SELECT DE MARCAS E DASHBOARD
-    // ==========================================
     function atualizarSelectMarcas() {
         const marcaAtualSelecionada = filtroMarca.value;
         const marcasUnicas = [...new Set(listaDePecas.map(p => (p.marca || '').trim()))].filter(m => m !== '').sort();
@@ -102,9 +154,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         valorTotalElement.textContent = formatarMoeda(valorTotal);
     }
 
-    // ==========================================
-    // RENDERIZAÇÃO DA TABELA (Estoque e Alerta Lado a Lado)
-    // ==========================================
     function renderizarTabela(pecasParaMostrar) {
         tableBody.innerHTML = '';
 
@@ -152,18 +201,30 @@ document.addEventListener('DOMContentLoaded', async function () {
             atualizarSelectMarcas();
             aplicarFiltros();
         } catch (error) {
+            emptyState.style.display = 'none';
+            tableWrapper.style.display = 'block';
             tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Não foi possível conectar ao servidor.</td></tr>`;
             showToast("Erro de conexão com o banco de dados.", "error");
         }
     }
 
-    // ==========================================
-    // SISTEMA DE FILTRAGEM COMBINADA
-    // ==========================================
     function aplicarFiltros() {
         const searchTerm = searchInput.value.toLowerCase().trim();
         const marcaSelecionada = filtroMarca.value;
         const precoFaixa = filtroPreco.value;
+
+        const isPesquisaAtiva = searchTerm !== '' || marcaSelecionada !== '' || precoFaixa !== '';
+
+        if (!isPesquisaAtiva && !forcarMostrarTodos) {
+            emptyState.style.display = 'flex';
+            tableWrapper.style.display = 'none';
+            dashboardMetrics.style.display = 'none';
+            return;
+        } else {
+            emptyState.style.display = 'none';
+            tableWrapper.style.display = 'block';
+            dashboardMetrics.style.display = 'flex';
+        }
 
         const pecasFiltradas = listaDePecas.filter(peca => {
             const nome = String(peca.nome || '').toLowerCase();
@@ -191,16 +252,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     let searchTimeout;
     searchInput.addEventListener('input', () => {
+        forcarMostrarTodos = false;
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(aplicarFiltros, 150);
     });
 
-    filtroMarca.addEventListener('change', aplicarFiltros);
-    filtroPreco.addEventListener('change', aplicarFiltros);
+    filtroMarca.addEventListener('change', () => { forcarMostrarTodos = false; aplicarFiltros(); });
+    filtroPreco.addEventListener('change', () => { forcarMostrarTodos = false; aplicarFiltros(); });
 
-    // ==========================================
-    // PRÉ-VISUALIZAÇÃO DE FOTOS (FileReader)
-    // ==========================================
     function configurarPreviewFotos(inputId, containerId) {
         const input = document.getElementById(inputId);
         const container = document.getElementById(containerId);
@@ -210,12 +269,41 @@ document.addEventListener('DOMContentLoaded', async function () {
             container.innerHTML = '';
             if (this.files && this.files.length > 0) {
                 container.style.display = 'flex';
+
                 Array.from(this.files).forEach(file => {
                     const reader = new FileReader();
                     reader.onload = function (e) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'img-thumb-wrapper';
+
                         const img = document.createElement('img');
                         img.src = e.target.result;
-                        container.appendChild(img);
+
+                        const btnRemover = document.createElement('button');
+                        btnRemover.type = 'button';
+                        btnRemover.className = 'btn-delete-photo';
+                        btnRemover.title = 'Remover esta foto da seleção';
+                        btnRemover.innerHTML = '<i class="fa fa-times"></i>';
+
+                        btnRemover.onclick = function () {
+                            wrapper.remove();
+
+                            const dt = new DataTransfer();
+                            for (let i = 0; i < input.files.length; i++) {
+                                if (input.files[i] !== file) {
+                                    dt.items.add(input.files[i]);
+                                }
+                            }
+                            input.files = dt.files;
+
+                            if (input.files.length === 0) {
+                                container.style.display = 'none';
+                            }
+                        };
+
+                        wrapper.appendChild(img);
+                        wrapper.appendChild(btnRemover);
+                        container.appendChild(wrapper);
                     }
                     reader.readAsDataURL(file);
                 });
@@ -228,9 +316,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     configurarPreviewFotos('addImagens', 'previewAddContainer');
     configurarPreviewFotos('editImagens', 'previewEditContainer');
 
-    // ==========================================
-    // MODAL: ADICIONAR NOVA PEÇA
-    // ==========================================
     document.querySelector('.btn-add').addEventListener('click', abrirModalAdicionar);
 
     function fecharAddPainel() {
@@ -240,6 +325,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('fecharAddPainelTop').onclick = fecharAddPainel;
     document.getElementById('btnCancelarNovaPeca').onclick = fecharAddPainel;
 
+    // ==========================================
+    // SALVAR NOVA PEÇA (Com compressão de imagem)
+    // ==========================================
     document.getElementById('btnSalvarNovaPeca').onclick = async function () {
         const codigoInput = document.getElementById('addCodigo');
         const nomeInput = document.getElementById('addNome');
@@ -274,14 +362,17 @@ document.addEventListener('DOMContentLoaded', async function () {
         formData.append('localizacao', document.getElementById('addLocalizacao').value);
 
         const fileInput = document.getElementById('addImagens');
-        for (let i = 0; i < fileInput.files.length; i++) {
-            formData.append('imagens', fileInput.files[i]);
-        }
-
         const btn = document.getElementById('btnSalvarNovaPeca');
+
         try {
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Salvando...';
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Compactando e Salvando...';
             btn.disabled = true;
+
+            // Compacta e anexa todas as imagens antes de enviar
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const imagemComprimida = await comprimirImagem(fileInput.files[i]);
+                formData.append('imagens', imagemComprimida);
+            }
 
             const response = await fetch(apiUrl, { method: 'POST', body: formData });
             if (response.ok) {
@@ -299,9 +390,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     };
 
-    // ==========================================
-    // MODAL: DETALHES, EDIÇÃO E EXCLUSÃO
-    // ==========================================
     tableBody.addEventListener('click', async function (event) {
         const target = event.target;
         const row = target.closest('tr');
@@ -320,11 +408,19 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                 const modalImagens = document.getElementById('modalImagens');
                 modalImagens.innerHTML = '';
+
                 if (fotosParaExibir.length > 0) {
                     fotosParaExibir.forEach(url => {
+                        const linkElement = document.createElement('a');
+                        linkElement.href = url;
+                        linkElement.target = "_blank";
+                        linkElement.title = "Clique para expandir a imagem";
+
                         const imgElement = document.createElement('img');
                         imgElement.src = url;
-                        modalImagens.appendChild(imgElement);
+
+                        linkElement.appendChild(imgElement);
+                        modalImagens.appendChild(linkElement);
                     });
                 } else {
                     modalImagens.innerHTML = '<p style="color: #888; font-size: 0.9rem;">Nenhuma foto cadastrada.</p>';
@@ -434,6 +530,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     document.getElementById('btnCancelarEdicao').onclick = modoVisualizacao;
 
+    // ==========================================
+    // SALVAR EDIÇÃO (Com compressão de imagem)
+    // ==========================================
     document.getElementById('btnSalvarEdicao').onclick = async function () {
         const formData = new FormData();
         formData.append('id', document.getElementById('editCodigo').value);
@@ -446,14 +545,17 @@ document.addEventListener('DOMContentLoaded', async function () {
         formData.append('imagensUrlsMantidas', JSON.stringify(imagensAtuaisEdicao));
 
         const fileInput = document.getElementById('editImagens');
-        for (let i = 0; i < fileInput.files.length; i++) {
-            formData.append('imagens', fileInput.files[i]);
-        }
-
         const btnSalvar = document.getElementById('btnSalvarEdicao');
+
         try {
-            btnSalvar.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Salvando...';
+            btnSalvar.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Compactando e Salvando...';
             btnSalvar.disabled = true;
+
+            // Compacta as novas imagens inseridas na edição
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const imagemComprimida = await comprimirImagem(fileInput.files[i]);
+                formData.append('imagens', imagemComprimida);
+            }
 
             const response = await fetch(`${apiUrl}/${idDaPecaAberta}`, { method: 'PUT', body: formData });
             if (response.ok) {
