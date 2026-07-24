@@ -1,17 +1,18 @@
 document.addEventListener('DOMContentLoaded', async function () {
 
     const apiUrl = 'https://autopecascanada.onrender.com/pecas';
-    const tableBody = document.querySelector('.inventory-table tbody');
+    const tableBody = document.getElementById('tableBody');
+    const searchInput = document.getElementById('searchInput');
+    const filtroMarca = document.getElementById('filtroMarca');
+    const filtroPreco = document.getElementById('filtroPreco');
 
     let listaDePecas = [];
     let idDaPecaAberta = null;
-    let imagensAtuaisEdicao = []; // Guarda as fotos que estão sendo editadas no painel
+    let imagensAtuaisEdicao = [];
 
     // Elementos UI
     const modal = document.getElementById('detalhesModal');
     const addModal = document.getElementById('addModal');
-    const sidePanel = document.getElementById('sidePanel');
-    const addSidePanel = document.getElementById('addSidePanel');
 
     // ==========================================
     // SISTEMA DE TOASTS (NOTIFICAÇÕES)
@@ -40,52 +41,21 @@ document.addEventListener('DOMContentLoaded', async function () {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numero);
     }
 
-    function renderizarTabela(pecas) {
-        listaDePecas = pecas;
-        tableBody.innerHTML = '';
-        pecas.forEach(peca => {
-            const row = tableBody.insertRow();
-            row.setAttribute('data-id', peca._id);
-            row.innerHTML = `
-                <td>${peca.id || ''}</td>
-                <td class="nome-clicavel" title="Clique para ver os detalhes">${peca.nome || ''}</td>
-                <td>${peca.marca || ''}</td>
-                <td>${peca.estoque || 0}</td>
-                <td>${formatarMoeda(peca.preco || 0)}</td>
-                <td>${peca.localizacao || ''}</td>
-                <td class="actions">
-                    <button class="btn-action btn-delete" title="Excluir"><i class="fa fa-trash"></i></button>
-                </td>
-            `;
-        });
-    }
-
-    async function carregarPecas() {
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) throw new Error('Falha na rede');
-            const pecas = await response.json();
-            renderizarTabela(pecas);
-        } catch (error) {
-            tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Não foi possível conectar ao servidor.</td></tr>`;
-            showToast("Erro de conexão com o banco de dados.", "error");
+    // ==========================================
+    // ATALHOS DE TECLADO (F2 e ESC)
+    // ==========================================
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'F2') {
+            event.preventDefault();
+            abrirModalAdicionar();
         }
-    }
-
-    // Busca
-    document.querySelector('.search-bar input').addEventListener('keyup', function (e) {
-        const searchTerm = e.target.value.toLowerCase();
-        tableBody.querySelectorAll('tr').forEach(row => {
-            const nameCell = row.cells[1].innerText.toLowerCase();
-            const codeCell = row.cells[0].innerText.toLowerCase();
-            row.style.display = (nameCell.includes(searchTerm) || codeCell.includes(searchTerm)) ? '' : 'none';
-        });
+        if (event.key === 'Escape') {
+            fecharPainel();
+            fecharAddPainel();
+        }
     });
 
-    // ==========================================
-    // PAINEL: ADICIONAR NOVA PEÇA
-    // ==========================================
-    document.querySelector('.btn-add').addEventListener('click', () => {
+    function abrirModalAdicionar() {
         ['addCodigo', 'addNome', 'addMarca', 'addPreco', 'addLocalizacao', 'addImagens'].forEach(id => {
             document.getElementById(id).value = '';
             document.getElementById(id).classList.remove('input-error');
@@ -93,13 +63,178 @@ document.addEventListener('DOMContentLoaded', async function () {
         document.getElementById('addEstoque').value = '1';
         document.getElementById('erroCodigo').style.display = 'none';
 
-        addModal.style.display = 'block';
-        setTimeout(() => addSidePanel.classList.add('open'), 10);
+        const previewAdd = document.getElementById('previewAddContainer');
+        previewAdd.innerHTML = '';
+        previewAdd.style.display = 'none';
+
+        addModal.style.display = 'flex';
+    }
+
+    // ==========================================
+    // ATUALIZAR SELECT DE MARCAS E DASHBOARD
+    // ==========================================
+    function atualizarSelectMarcas() {
+        const marcaAtualSelecionada = filtroMarca.value;
+        const marcasUnicas = [...new Set(listaDePecas.map(p => (p.marca || '').trim()))].filter(m => m !== '').sort();
+
+        filtroMarca.innerHTML = '<option value="">Todas as Marcas</option>';
+        marcasUnicas.forEach(marca => {
+            const option = document.createElement('option');
+            option.value = marca.toLowerCase();
+            option.textContent = marca;
+            filtroMarca.appendChild(option);
+        });
+        filtroMarca.value = marcaAtualSelecionada;
+    }
+
+    function atualizarDashboard(pecasExibidas) {
+        const countElement = document.getElementById('countPecas');
+        const valorTotalElement = document.getElementById('valorTotalEstoque');
+
+        countElement.textContent = pecasExibidas.length;
+
+        let valorTotal = pecasExibidas.reduce((acc, peca) => {
+            const preco = parseFloat(String(peca.preco || 0).replace(',', '.')) || 0;
+            const estoque = parseInt(peca.estoque || 0) || 0;
+            return acc + (preco * estoque);
+        }, 0);
+
+        valorTotalElement.textContent = formatarMoeda(valorTotal);
+    }
+
+    // ==========================================
+    // RENDERIZAÇÃO DA TABELA (Estoque e Alerta Lado a Lado)
+    // ==========================================
+    function renderizarTabela(pecasParaMostrar) {
+        tableBody.innerHTML = '';
+
+        if (pecasParaMostrar.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#888;">Nenhuma peça encontrada com esses filtros.</td></tr>`;
+            atualizarDashboard([]);
+            return;
+        }
+
+        let htmlRows = '';
+        pecasParaMostrar.forEach(peca => {
+            const qtdEstoque = parseInt(peca.estoque || 0);
+            const alertaEstoque = qtdEstoque <= 1
+                ? `<span class="badge-estoque-baixo" title="Estoque crítico!"><i class="fa fa-triangle-exclamation"></i> Baixo</span>`
+                : '';
+
+            htmlRows += `
+                <tr data-id="${peca._id}">
+                    <td>${peca.id || ''}</td>
+                    <td class="nome-clicavel" title="Clique para ver os detalhes">${peca.nome || ''}</td>
+                    <td>${peca.marca || ''}</td>
+                    <td>
+                        <div class="estoque-wrapper">
+                            <span>${qtdEstoque} un.</span>
+                            ${alertaEstoque}
+                        </div>
+                    </td>
+                    <td>${formatarMoeda(peca.preco || 0)}</td>
+                    <td>${peca.localizacao || ''}</td>
+                    <td class="actions">
+                        <button class="btn-action btn-delete" title="Excluir"><i class="fa fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        tableBody.innerHTML = htmlRows;
+        atualizarDashboard(pecasParaMostrar);
+    }
+
+    async function carregarPecas() {
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error('Falha na rede');
+            listaDePecas = await response.json();
+            atualizarSelectMarcas();
+            aplicarFiltros();
+        } catch (error) {
+            tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Não foi possível conectar ao servidor.</td></tr>`;
+            showToast("Erro de conexão com o banco de dados.", "error");
+        }
+    }
+
+    // ==========================================
+    // SISTEMA DE FILTRAGEM COMBINADA
+    // ==========================================
+    function aplicarFiltros() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const marcaSelecionada = filtroMarca.value;
+        const precoFaixa = filtroPreco.value;
+
+        const pecasFiltradas = listaDePecas.filter(peca => {
+            const nome = String(peca.nome || '').toLowerCase();
+            const codigo = String(peca.id || '').toLowerCase();
+            const marca = String(peca.marca || '').toLowerCase();
+            const preco = parseFloat(String(peca.preco || 0).toString().replace(',', '.')) || 0;
+
+            const matchTexto = searchTerm === '' || nome.includes(searchTerm) || codigo.includes(searchTerm) || marca.includes(searchTerm);
+            const matchMarca = marcaSelecionada === '' || marca === marcaSelecionada;
+
+            let matchPreco = true;
+            if (precoFaixa === 'ate-100') {
+                matchPreco = preco <= 100;
+            } else if (precoFaixa === '100-500') {
+                matchPreco = preco > 100 && preco <= 500;
+            } else if (precoFaixa === 'acima-500') {
+                matchPreco = preco > 500;
+            }
+
+            return matchTexto && matchMarca && matchPreco;
+        });
+
+        renderizarTabela(pecasFiltradas);
+    }
+
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(aplicarFiltros, 150);
     });
 
+    filtroMarca.addEventListener('change', aplicarFiltros);
+    filtroPreco.addEventListener('change', aplicarFiltros);
+
+    // ==========================================
+    // PRÉ-VISUALIZAÇÃO DE FOTOS (FileReader)
+    // ==========================================
+    function configurarPreviewFotos(inputId, containerId) {
+        const input = document.getElementById(inputId);
+        const container = document.getElementById(containerId);
+        if (!input || !container) return;
+
+        input.addEventListener('change', function () {
+            container.innerHTML = '';
+            if (this.files && this.files.length > 0) {
+                container.style.display = 'flex';
+                Array.from(this.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        container.appendChild(img);
+                    }
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                container.style.display = 'none';
+            }
+        });
+    }
+
+    configurarPreviewFotos('addImagens', 'previewAddContainer');
+    configurarPreviewFotos('editImagens', 'previewEditContainer');
+
+    // ==========================================
+    // MODAL: ADICIONAR NOVA PEÇA
+    // ==========================================
+    document.querySelector('.btn-add').addEventListener('click', abrirModalAdicionar);
+
     function fecharAddPainel() {
-        addSidePanel.classList.remove('open');
-        setTimeout(() => addModal.style.display = "none", 400);
+        addModal.style.display = "none";
     }
 
     document.getElementById('fecharAddPainelTop').onclick = fecharAddPainel;
@@ -165,7 +300,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     };
 
     // ==========================================
-    // PAINEL: DETALHES, EDIÇÃO E EXCLUSÃO
+    // MODAL: DETALHES, EDIÇÃO E EXCLUSÃO
     // ==========================================
     tableBody.addEventListener('click', async function (event) {
         const target = event.target;
@@ -204,8 +339,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 `;
 
                 modoVisualizacao();
-                modal.style.display = 'block';
-                setTimeout(() => sidePanel.classList.add('open'), 10);
+                modal.style.display = 'flex';
             }
             return;
         }
@@ -283,7 +417,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             document.getElementById('editLocalizacao').value = peca.localizacao || '';
             document.getElementById('editImagens').value = '';
 
-            // Carrega as fotos para o gerenciador individual de exclusão
+            const previewEdit = document.getElementById('previewEditContainer');
+            previewEdit.innerHTML = '';
+            previewEdit.style.display = 'none';
+
             imagensAtuaisEdicao = [];
             if (peca.imagemUrl) imagensAtuaisEdicao.push(peca.imagemUrl);
             if (peca.imagensUrls && peca.imagensUrls.length > 0) {
@@ -306,7 +443,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         formData.append('preco', document.getElementById('editPreco').value.replace(',', '.'));
         formData.append('localizacao', document.getElementById('editLocalizacao').value);
 
-        // Envia quais fotos o usuário decidiu manter após apagar algumas com o X
         formData.append('imagensUrlsMantidas', JSON.stringify(imagensAtuaisEdicao));
 
         const fileInput = document.getElementById('editImagens');
@@ -336,11 +472,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     };
 
     function fecharPainel() {
-        sidePanel.classList.remove('open');
-        setTimeout(() => {
-            modal.style.display = "none";
-            modoVisualizacao();
-        }, 400);
+        modal.style.display = "none";
+        modoVisualizacao();
     }
 
     document.getElementById('fecharPainelTop').onclick = fecharPainel;

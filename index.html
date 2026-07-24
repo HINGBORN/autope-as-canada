@@ -18,12 +18,33 @@
 
     <main>
         <div class="container">
+            <!-- Barra de Ferramentas e Filtros -->
             <div class="toolbar">
-                <div class="search-bar">
-                    <input type="text" placeholder="Buscar por nome ou código...">
-                    <button class="btn-search"><i class="fa fa-search"></i></button>
+                <div class="search-group">
+                    <div class="search-bar">
+                        <input type="text" id="searchInput" placeholder="Buscar por nome ou código...">
+                        <button class="btn-search"><i class="fa fa-search"></i></button>
+                    </div>
+                    <select id="filtroMarca" class="filter-select">
+                        <option value="">Todas as Marcas</option>
+                    </select>
+                    <select id="filtroPreco" class="filter-select">
+                        <option value="">Qualquer Preço</option>
+                        <option value="ate-100">Até R$ 100,00</option>
+                        <option value="100-500">R$ 100,00 - R$ 500,00</option>
+                        <option value="acima-500">Acima de R$ 500,00</option>
+                    </select>
                 </div>
-                <button class="btn btn-add"><i class="fa fa-plus"></i> Adicionar Nova Peça</button>
+                <button class="btn btn-add"><i class="fa fa-plus"></i> Adicionar Nova Peça <span
+                        style="font-size:0.75rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:3px; margin-left:5px;">F2</span></button>
+            </div>
+
+            <!-- Dashboard Métricas Rápidas -->
+            <div class="dashboard-metrics" id="dashboardMetrics">
+                <span><i class="fa-solid fa-boxes-stacked"></i> Exibindo: <strong id="countPecas">0</strong>
+                    peças</span>
+                <span><i class="fa-solid fa-wallet"></i> Valor Total no Estoque: <strong id="valorTotalEstoque">R$
+                        0,00</strong></span>
             </div>
 
             <div class="table-wrapper">
@@ -33,13 +54,13 @@
                             <th>Código</th>
                             <th>Nome da Peça</th>
                             <th>Marca</th>
-                            <th>Em Estoque</th>
+                            <th>Estoque</th>
                             <th>Preço (R$)</th>
                             <th>Localização</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tableBody">
                         <!-- As linhas entram aqui -->
                     </tbody>
                 </table>
@@ -48,12 +69,13 @@
     </main>
 
     <footer>
-        <p>&copy; 2026 Canada Auto Peças - Todos os direitos reservados.</p>
+        <p>&copy; 2026 Canada Auto Peças - Todos os direitos reservados. | Dica: Pressione <strong>F2</strong> para
+            cadastrar nova peça e <strong>Esc</strong> para fechar telas.</p>
     </footer>
 
-    <!-- PAINEL LATERAL: DETALHES E EDIÇÃO -->
+    <!-- MODAL FLUTUANTE CENTRALIZADO: DETALHES E EDIÇÃO -->
     <div id="detalhesModal" class="side-panel-overlay">
-        <div class="side-panel" id="sidePanel">
+        <div class="side-panel side-panel-wide" id="sidePanel">
             <div class="side-panel-header">
                 <h2 id="modalNome">Nome da Peça</h2>
                 <span class="close-btn" id="fecharPainelTop"><i class="fa fa-times"></i></span>
@@ -85,17 +107,18 @@
                                 <label>Estoque</label>
                                 <input type="number" id="editEstoque" class="form-control">
                             </div>
+                            <div class="form-group">
+                                <label>Preço (R$)</label>
+                                <input type="text" id="editPreco" class="form-control">
+                            </div>
                             <div class="form-group full-width">
                                 <label>Nome da Peça *</label>
                                 <input type="text" id="editNome" class="form-control">
                             </div>
                             <div class="form-group">
                                 <label>Marca</label>
-                                <input type="text" id="editMarca" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Preço (R$)</label>
-                                <input type="text" id="editPreco" class="form-control">
+                                <input type="text" id="editMarca" class="form-control" list="marcasList"
+                                    placeholder="Ex: Chevrolet">
                             </div>
                             <div class="form-group full-width">
                                 <label>Localização</label>
@@ -112,7 +135,11 @@
                         <div id="modalImagensEdicao" class="gallery-container mb-3"></div>
 
                         <h3 style="margin-top: 15px;"><i class="fa-solid fa-upload"></i> Adicionar Novas Fotos</h3>
-                        <input type="file" id="editImagens" accept="image/*" multiple class="form-control">
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Selecione até 4 fotos segurando
+                            a tecla <strong>CTRL</strong> no teclado.</p>
+                        <input type="file" id="editImagens" accept="image/*" multiple class="form-control mb-3">
+
+                        <div id="previewEditContainer" class="gallery-container" style="display: none;"></div>
                     </div>
                 </div>
             </div>
@@ -128,7 +155,7 @@
         </div>
     </div>
 
-    <!-- PAINEL LATERAL: ADICIONAR NOVA PEÇA -->
+    <!-- MODAL FLUTUANTE CENTRALIZADO: ADICIONAR NOVA PEÇA -->
     <div id="addModal" class="side-panel-overlay">
         <div class="side-panel side-panel-wide" id="addSidePanel">
             <div class="side-panel-header">
@@ -151,17 +178,18 @@
                             <label>Estoque Inicial</label>
                             <input type="number" id="addEstoque" class="form-control" value="1" min="0">
                         </div>
+                        <div class="form-group">
+                            <label>Preço (R$)</label>
+                            <input type="text" id="addPreco" class="form-control" placeholder="0,00">
+                        </div>
                         <div class="form-group full-width">
                             <label>Nome da Peça *</label>
                             <input type="text" id="addNome" class="form-control" placeholder="Ex: Parachoque Traseiro">
                         </div>
                         <div class="form-group">
                             <label>Marca</label>
-                            <input type="text" id="addMarca" class="form-control" placeholder="Ex: Fiat">
-                        </div>
-                        <div class="form-group">
-                            <label>Preço (R$)</label>
-                            <input type="text" id="addPreco" class="form-control" placeholder="0,00">
+                            <input type="text" id="addMarca" class="form-control" list="marcasList"
+                                placeholder="Ex: Chevrolet">
                         </div>
                         <div class="form-group full-width">
                             <label>Localização (Corredor/Prateleira)</label>
@@ -173,7 +201,9 @@
                     <h3><i class="fa-solid fa-images"></i> Galeria de Fotos</h3>
                     <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Selecione até 4 fotos segurando a
                         tecla <strong>CTRL</strong> no teclado.</p>
-                    <input type="file" id="addImagens" accept="image/*" multiple class="form-control">
+                    <input type="file" id="addImagens" accept="image/*" multiple class="form-control mb-3">
+
+                    <div id="previewAddContainer" class="gallery-container" style="display: none;"></div>
                 </div>
             </div>
 
@@ -185,6 +215,28 @@
             </div>
         </div>
     </div>
+
+    <!-- Lista de Sugestões Inteligentes de Marcas (Datalist) -->
+    <datalist id="marcasList">
+        <option value="Chevrolet">
+        <option value="Fiat">
+        <option value="Ford">
+        <option value="Volkswagen">
+        <option value="Toyota">
+        <option value="Honda">
+        <option value="Hyundai">
+        <option value="Renault">
+        <option value="Jeep">
+        <option value="Nissan">
+        <option value="Peugeot">
+        <option value="Citroën">
+        <option value="BMW">
+        <option value="Audi">
+        <option value="Mercedes-Benz">
+        <option value="Mitsubishi">
+        <option value="Chery">
+        <option value="Kia">
+    </datalist>
 
     <!-- Container para Notificações -->
     <div id="toastContainer" class="toast-container"></div>
