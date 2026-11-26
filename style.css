@@ -1793,3 +1793,88 @@ footer {
         display: none;
     }
 }
+
+
+/* ========================================== */
+/* BOTÃO ORÇAMENTOS PENDENTES COM CONTADOR    */
+/* ========================================== */
+.btn-nav-pendentes {
+    background: rgba(230, 126, 34, 0.22);
+    color: #f39c12;
+    border: 1px solid rgba(230, 126, 34, 0.55);
+    position: relative;
+}
+
+.btn-nav-pendentes:hover {
+    background: #e67e22;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.badge-pendentes-pill {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 20px;
+    margin-left: 2px;
+}
+
+.badge-pendentes-pill.has-pending {
+    background: #e74c3c;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.7);
+    animation: pulsePending 1.8s infinite;
+}
+
+@keyframes pulsePending {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.12);
+    }
+}
+
+.btn-pendente-action {
+    border: none;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+}
+
+.btn-aprovar-compra {
+    background: #27ae60;
+    color: #fff;
+}
+
+.btn-aprovar-compra:hover {
+    background: #219150;
+    transform: translateY(-1px);
+}
+
+.btn-reabrir-orc {
+    background: #1a1a1a;
+    color: var(--cor-amarelo);
+}
+
+.btn-reabrir-orc:hover {
+    background: #333;
+}
+
+.btn-cancelar-pendente {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+}
+
+.btn-cancelar-pendente:hover {
+    background: #e74c3c;
+    color: #fff;
+}

@@ -31,6 +31,10 @@
             </div>
         </div>
         <div class="user-profile header-actions">
+            <button id="btnAbrirPendentesHeader" class="btn-header-nav btn-nav-pendentes" title="Orçamentos enviados aguardando resposta do cliente">
+                <i class="fa-solid fa-hourglass-half"></i> Pendentes
+                <span id="badgeCountPendentesHeader" class="badge-pendentes-pill">0</span>
+            </button>
             <button id="btnAbrirDashboard" class="btn-header-nav btn-nav-dashboard" title="Ver Gráficos de Vendas, Estoque Baixo e Métricas da Empresa">
                 <i class="fa-solid fa-chart-pie"></i> Dashboard
             </button>
@@ -761,6 +765,48 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE ORÇAMENTOS PENDENTES (AGUARDANDO RESPOSTA DO CLIENTE) -->
+    <div id="pendentesModal" class="side-panel-overlay">
+        <div class="side-panel side-panel-orcamento" style="max-width: 1080px !important;">
+            <div class="side-panel-header">
+                <h2><i class="fa-solid fa-hourglass-half"></i> Orçamentos Pendentes — Aguardando Confirmação do Cliente</h2>
+                <span class="close-btn" id="fecharPendentesTop"><i class="fa fa-times"></i></span>
+            </div>
+            <div class="side-panel-content">
+                <div class="panel-section" style="background: rgba(255,255,255,0.96); margin-bottom:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                        <div>
+                            <h3 style="margin-bottom:4px; border:none;"><i class="fa-solid fa-file-circle-question" style="color:#e67e22;"></i> Orçamentos Enviados aos Clientes</h3>
+                            <p style="font-size:0.86rem; color:#555;">
+                                Sempre que você gera o PDF de um orçamento, ele fica salvo aqui como <strong>Pendente</strong> (sem descontar do estoque). Quando o cliente confirmar a compra, clique em <strong>"Deu Certo (Confirmar Venda)"</strong> para dar baixa automática no estoque e enviar para o Histórico de Vendas!
+                            </p>
+                        </div>
+                        <div style="background:#1a1a1a; color:var(--cor-amarelo); padding:8px 16px; border-radius:8px; font-weight:700; white-space:nowrap;">
+                            Aguardando Resposta: <strong id="totalValorPendentes">R$ 0,00</strong>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper" style="background:#fff; max-height: 460px; overflow-y:auto;">
+                        <table class="orc-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Nº Orç. / Data</th>
+                                    <th>Cliente / Veículo</th>
+                                    <th>Peças e Serviços do Orçamento</th>
+                                    <th>Valor Total</th>
+                                    <th style="text-align:center;">O Cliente Fechou a Compra?</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaOrcamentosPendentesBody">
+                                <tr><td colspan="5" style="text-align:center; color:#777; padding:18px;">Nenhum orçamento pendente no momento.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

@@ -1527,6 +1527,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 // Salva (baixa) o arquivo .PDF diretamente no computador ou celular!
                 doc.save(nomeArquivo);
 
+                // Salva automaticamente o orçamento na lista de PENDENTES (sem descontar do estoque ainda!)
+                await salvarOrcamentoComoPendenteAutomatico(d, totalGeral);
+
                 // Se estiver no celular com suporte a Web Share de arquivos, também oferece enviar o PDF direto no WhatsApp
                 try {
                     const pdfBlob = doc.output('blob');
@@ -1540,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     }
                 } catch (_) {}
 
-                showToast(`PDF "${nomeArquivo}" gerado e baixado com sucesso! Agora é só anexar no WhatsApp do cliente.`, 'success');
+                showToast(`PDF "${nomeArquivo}" baixado e salvo em "⏳ Pendentes" aguardando o cliente!`, 'success');
             } catch (err) {
                 console.error(err);
                 showToast('Erro ao gerar o arquivo PDF.', 'error');
@@ -1627,6 +1630,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             const totalGeral = totalProdutos + totalServicos;
             const logoUrl = new URL('images/favicon.jpg', window.location.href).href;
+
+            // Salva automaticamente o orçamento na lista de PENDENTES ao imprimir também
+            salvarOrcamentoComoPendenteAutomatico(d, totalGeral);
 
             const printWin = window.open('', '_blank', 'width=950,height=850');
             if (!printWin) {
@@ -1772,11 +1778,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // ==========================================
-    // MÓDULO DE HISTÓRICO (ESTOQUE & VENDAS) E DASHBOARD GERENCIAL (CHART.JS)
+    // MÓDULO DE HISTÓRICO (ESTOQUE & VENDAS), ORÇAMENTOS PENDENTES E DASHBOARD (CHART.JS)
     // ==========================================
     const historicoApiUrl = `${baseUrl}/historico`;
     const dashboardModal = document.getElementById('dashboardModal');
     const historicoModal = document.getElementById('historicoModal');
+    const pendentesModal = document.getElementById('pendentesModal');
     let listaHistorico = [];
     let chartVendasInst = null;
     let chartMarcasInst = null;
@@ -1796,6 +1803,22 @@ document.addEventListener('DOMContentLoaded', async function () {
         } catch (e) {}
     }
 
+    function obterOrcamentosPendentes() {
+        return listaHistorico.filter(r => r.tipo === 'orcamento_pendente' && r.status !== 'aprovado' && r.status !== 'cancelado');
+    }
+
+    function atualizarContadorPendentesHeader() {
+        const badgeHeader = document.getElementById('badgeCountPendentesHeader');
+        if (!badgeHeader) return;
+        const qtdPendentes = obterOrcamentosPendentes().length;
+        badgeHeader.textContent = qtdPendentes;
+        if (qtdPendentes > 0) {
+            badgeHeader.classList.add('has-pending');
+        } else {
+            badgeHeader.classList.remove('has-pending');
+        }
+    }
+
     async function carregarHistorico() {
         try {
             const resp = await fetch(historicoApiUrl);
@@ -1804,11 +1827,65 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (Array.isArray(dadosRemotos)) {
                     listaHistorico = dadosRemotos;
                     salvarHistoricoLocalBackup(listaHistorico);
+                    atualizarContadorPendentesHeader();
                     return;
                 }
             }
         } catch (e) {}
         listaHistorico = obterHistoricoLocalBackup();
+        atualizarContadorPendentesHeader();
+    }
+
+    // Salva automaticamente o orçamento como PENDENTE quando o vendedor gera o PDF ou Imprime
+    async function salvarOrcamentoComoPendenteAutomatico(dadosCabecalho, valorTotalOrc) {
+        if (itensDoOrcamento.length === 0) return;
+
+        // Evita duplicar se já salvou exatamente o mesmo número de orçamento pendente; substitui o anterior
+        const jaExiste = listaHistorico.find(r =>
+            r.tipo === 'orcamento_pendente' &&
+            String(r.orcamentoNumero) === String(dadosCabecalho.numero)
+        );
+        if (jaExiste && jaExiste._id) {
+            try {
+                if (!String(jaExiste._id).startsWith('loc_')) {
+                    await fetch(`${historicoApiUrl}/${jaExiste._id}`, { method: 'DELETE' });
+                }
+            } catch (e) {}
+            listaHistorico = listaHistorico.filter(r => r._id !== jaExiste._id);
+        }
+
+        const resumoNomes = itensDoOrcamento.map(i => `${i.qtd}x ${i.descricao}`).join(', ');
+        const qtdTotalPecas = itensDoOrcamento.reduce((acc, i) => acc + (Number(i.qtd) || 1), 0);
+
+        await registrarEventoHistorico({
+            tipo: 'orcamento_pendente',
+            status: 'pendente',
+            codigoPeca: `ORC-${dadosCabecalho.numero}`,
+            nomePeca: resumoNomes,
+            quantidade: qtdTotalPecas,
+            valorUnitario: valorTotalOrc,
+            valorTotal: valorTotalOrc,
+            motivo: `Orçamento Nº ${dadosCabecalho.numero} — Aguardando confirmação do cliente`,
+            cliente: dadosCabecalho.clienteNome || 'Consumidor',
+            clienteFone: dadosCabecalho.clienteFone || '',
+            veiculo: `${dadosCabecalho.veiculoMod || ''} ${dadosCabecalho.veiculoPlaca && dadosCabecalho.veiculoPlaca !== '-' ? '(' + dadosCabecalho.veiculoPlaca + ')' : ''}`.trim(),
+            vendedor: dadosCabecalho.vendedor || 'Admin',
+            orcamentoNumero: dadosCabecalho.numero,
+            dadosOrcamentoCabecalho: dadosCabecalho,
+            baixarEstoque: false, // NÃO desconta do estoque enquanto estiver pendente!
+            itensVenda: itensDoOrcamento.map(i => ({
+                tipo: i.tipo,
+                origem: i.origem,
+                codigo: i.codigo,
+                descricao: i.descricao,
+                qtd: i.qtd,
+                precoUnit: i.precoUnit,
+                desconto: i.desconto,
+                total: Math.max(0, (i.qtd * i.precoUnit) - i.desconto)
+            }))
+        });
+
+        atualizarContadorPendentesHeader();
     }
 
     async function registrarEventoHistorico(novoEvento) {
@@ -1946,10 +2023,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
         }
 
-        // 2. Filtra Histórico de Vendas / Compras dos Clientes
+        // 2. Filtra Histórico de Vendas / Compras dos Clientes (NÃO inclui orçamentos que ainda estão pendentes)
         const registrosVendas = listaHistorico.filter(r =>
             r.tipo === 'venda' ||
-            String(r.motivo || '').toLowerCase().includes('venda')
+            (r.tipo !== 'orcamento_pendente' && String(r.motivo || '').toLowerCase().includes('venda'))
         );
 
         let somaTotalVendas = 0;
@@ -2130,12 +2207,14 @@ document.addEventListener('DOMContentLoaded', async function () {
         listaHistorico.forEach(reg => {
             const d = new Date(reg.data);
             if (!isNaN(d.getTime()) && d.getMonth() === mesAtual && d.getFullYear() === anoAtual) {
-                const isVenda = reg.tipo === 'venda' || String(reg.motivo || '').toLowerCase().includes('venda');
+                const isVenda = reg.tipo === 'venda' || (reg.tipo !== 'orcamento_pendente' && String(reg.motivo || '').toLowerCase().includes('venda'));
                 if (isVenda) {
                     valorVendasMes += (Number(reg.valorTotal) || 0);
                     qtdVendasMes += 1;
                 }
-                qtdPecasSairamMes += (Number(reg.quantidade) || 1);
+                if (reg.tipo !== 'orcamento_pendente') {
+                    qtdPecasSairamMes += (Number(reg.quantidade) || 1);
+                }
             }
         });
 
@@ -2302,6 +2381,194 @@ document.addEventListener('DOMContentLoaded', async function () {
     const fecharDashboardTop = document.getElementById('fecharDashboardTop');
     if (fecharDashboardTop) fecharDashboardTop.onclick = () => dashboardModal.style.display = 'none';
 
+    // ==========================================
+    // TELA DE ORÇAMENTOS PENDENTES ("O CLIENTE FECHOU A COMPRA?")
+    // ==========================================
+    function renderizarTabelaOrcamentosPendentes() {
+        const tbody = document.getElementById('tabelaOrcamentosPendentesBody');
+        const totalEl = document.getElementById('totalValorPendentes');
+        if (!tbody) return;
+
+        atualizarContadorPendentesHeader();
+        const pendentes = obterOrcamentosPendentes();
+        tbody.innerHTML = '';
+
+        let somaPendentes = 0;
+        if (pendentes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#777; padding:24px;">Nenhum orçamento pendente no momento. Quando você gerar um PDF de orçamento, ele aparecerá aqui!</td></tr>`;
+            if (totalEl) totalEl.textContent = 'R$ 0,00';
+            return;
+        }
+
+        pendentes.forEach(orc => {
+            const valorOrc = Number(orc.valorTotal) || 0;
+            somaPendentes += valorOrc;
+
+            const listaItensHtml = (Array.isArray(orc.itensVenda) && orc.itensVenda.length > 0)
+                ? orc.itensVenda.map(i => `<span style="display:inline-block; background:#f1f3f5; padding:2px 8px; border-radius:6px; font-size:0.8rem; margin:2px;"><strong>${i.qtd}x</strong> [${i.codigo}] ${i.descricao} (${formatarMoeda(i.total)})</span>`).join(' ')
+                : `<span>${orc.nomePeca || '-'}</span>`;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="white-space:nowrap;">
+                    <strong style="font-size:1rem; color:#111;">Nº ${orc.orcamentoNumero || '-'}</strong>
+                    <br><small style="color:#666;">${formatarDataHoraBR(orc.data)}</small>
+                </td>
+                <td>
+                    <strong>${orc.cliente || 'Consumidor'}</strong>
+                    ${orc.clienteFone && orc.clienteFone !== '-' ? `<br><small style="color:#555;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> ${orc.clienteFone}</small>` : ''}
+                    ${orc.veiculo && orc.veiculo !== '-' ? `<br><small style="color:#555;"><i class="fa-solid fa-car"></i> ${orc.veiculo}</small>` : ''}
+                </td>
+                <td>${listaItensHtml}</td>
+                <td style="white-space:nowrap;"><strong style="font-size:1.05rem; color:#e67e22;">${formatarMoeda(valorOrc)}</strong></td>
+                <td style="text-align:center; white-space:nowrap;">
+                    <div style="display:inline-flex; gap:6px; align-items:center;">
+                        <button type="button" class="btn-pendente-action btn-aprovar-compra" title="O cliente comprou! Dar baixa automática no estoque e registrar venda">
+                            <i class="fa-solid fa-check"></i> Deu Certo (Vendido)
+                        </button>
+                        <button type="button" class="btn-pendente-action btn-reabrir-orc" title="Reabrir este orçamento para editar ou baixar PDF de novo">
+                            <i class="fa-solid fa-pen-to-square"></i> Reabrir
+                        </button>
+                        <button type="button" class="btn-pendente-action btn-cancelar-pendente" title="Cliente desistiu / Excluir dos pendentes">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            // Botão 1: DEU CERTO (CONFIRMAR VENDA & DAR BAIXA NO ESTOQUE)
+            tr.querySelector('.btn-aprovar-compra').onclick = async function () {
+                if (!confirm(`Confirmar que o cliente "${orc.cliente || 'Consumidor'}" fechou a compra do Orçamento Nº ${orc.orcamentoNumero} (${formatarMoeda(valorOrc)})?\n\nIsso dará baixa automática das peças no estoque e registrará no Histórico de Vendas!`)) {
+                    return;
+                }
+
+                const btn = this;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Baixando...';
+
+                try {
+                    let aprovouNoServidor = false;
+                    if (orc._id && !String(orc._id).startsWith('loc_')) {
+                        const resp = await fetch(`${historicoApiUrl}/${orc._id}/aprovar`, { method: 'PUT' });
+                        if (resp.ok) {
+                            aprovouNoServidor = true;
+                        }
+                    }
+
+                    // Se o Render ainda não tinha a rota /aprovar, faz a baixa no estoque e atualiza o histórico via API padrão
+                    if (!aprovouNoServidor) {
+                        if (Array.isArray(orc.itensVenda)) {
+                            for (const item of orc.itensVenda) {
+                                if (item.codigo && item.codigo !== 'AVULSO' && item.codigo !== '-' && item.tipo !== 'servico') {
+                                    const pecaEstoque = listaDePecas.find(p => String(p.id).trim() === String(item.codigo).replace('#', '').trim());
+                                    if (pecaEstoque) {
+                                        const novoEst = Math.max(0, (parseInt(pecaEstoque.estoque) || 0) - (Number(item.qtd) || 1));
+                                        const fd = new FormData();
+                                        fd.append('id', pecaEstoque.id || '');
+                                        fd.append('nome', pecaEstoque.nome || '');
+                                        fd.append('marca', pecaEstoque.marca || '');
+                                        fd.append('estoque', novoEst);
+                                        fd.append('preco', pecaEstoque.preco || 0);
+                                        fd.append('localizacao', pecaEstoque.localizacao || '');
+                                        fd.append('imagensUrlsMantidas', JSON.stringify(pecaEstoque.imagensUrls || []));
+                                        await fetch(`${apiUrl}/${pecaEstoque._id}`, { method: 'PUT', body: fd }).catch(() => {});
+                                    }
+                                }
+                            }
+                        }
+                        orc.tipo = 'venda';
+                        orc.status = 'aprovado';
+                        orc.data = new Date().toISOString();
+                        orc.motivo = `Venda Aprovada — Orçamento Nº ${orc.orcamentoNumero || '-'}`;
+                        salvarHistoricoLocalBackup(listaHistorico);
+                    }
+
+                    await carregarHistorico();
+                    await carregarPecas();
+                    renderizarTabelaOrcamentosPendentes();
+                    showToast(`Compra do Orçamento Nº ${orc.orcamentoNumero} confirmada! Estoque atualizado e venda registrada!`, 'success');
+                } catch (e) {
+                    showToast('Erro ao confirmar compra.', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Deu Certo (Vendido)';
+                }
+            };
+
+            // Botão 2: REABRIR ORÇAMENTO (para editar itens ou baixar PDF novamente)
+            tr.querySelector('.btn-reabrir-orc').onclick = () => {
+                const cab = orc.dadosOrcamentoCabecalho || {};
+                document.getElementById('orcNumero').value = orc.orcamentoNumero || cab.numero || '';
+                document.getElementById('orcOS').value = cab.os !== '-' ? (cab.os || '') : '';
+                document.getElementById('orcVendedor').value = orc.vendedor || cab.vendedor || '';
+                document.getElementById('orcValidade').value = cab.validade || '';
+                document.getElementById('orcClienteNome').value = orc.cliente || cab.clienteNome || '';
+                document.getElementById('orcClienteDoc').value = cab.clienteDoc !== '-' ? (cab.clienteDoc || '') : '';
+                document.getElementById('orcClienteFone').value = orc.clienteFone || (cab.clienteFone !== '-' ? cab.clienteFone : '') || '';
+                document.getElementById('orcClienteEndereco').value = cab.clienteEnd !== '-' ? (cab.clienteEnd || '') : '';
+                document.getElementById('orcClienteCep').value = cab.clienteCep !== '-' ? (cab.clienteCep || '') : '';
+                document.getElementById('orcVeiculoModelo').value = cab.veiculoMod !== '-' ? (cab.veiculoMod || '') : '';
+                document.getElementById('orcVeiculoPlaca').value = cab.veiculoPlaca !== '-' ? (cab.veiculoPlaca || '') : '';
+                document.getElementById('orcVeiculoAno').value = cab.veiculoAno !== '-' ? (cab.veiculoAno || '') : '';
+                document.getElementById('orcVeiculoKm').value = cab.veiculoKm !== '-' ? (cab.veiculoKm || '') : '';
+                document.getElementById('orcVeiculoCombustivel').value = cab.veiculoComb !== '-' ? (cab.veiculoComb || '') : '';
+                document.getElementById('orcVeiculoChassi').value = cab.veiculoChassi !== '-' ? (cab.veiculoChassi || '') : '';
+
+                if (Array.isArray(orc.itensVenda) && orc.itensVenda.length > 0) {
+                    itensDoOrcamento = orc.itensVenda.map(i => ({
+                        tipo: i.tipo || 'produto',
+                        origem: i.origem || 'estoque',
+                        codigo: i.codigo || '-',
+                        descricao: i.descricao || '',
+                        qtd: Number(i.qtd) || 1,
+                        precoUnit: Number(i.precoUnit) || 0,
+                        desconto: Number(i.desconto) || 0
+                    }));
+                }
+
+                pendentesModal.style.display = 'none';
+                abrirModalOrcamento();
+                showToast(`Orçamento Nº ${orc.orcamentoNumero} reaberto para edição!`, 'success');
+            };
+
+            // Botão 3: CANCELAR / CLIENTE NÃO FECHOU
+            tr.querySelector('.btn-cancelar-pendente').onclick = async () => {
+                if (!confirm(`Remover o Orçamento Nº ${orc.orcamentoNumero} (${orc.cliente}) da lista de pendentes? (Nenhuma peça será descontada do estoque)`)) {
+                    return;
+                }
+                try {
+                    if (orc._id && !String(orc._id).startsWith('loc_')) {
+                        await fetch(`${historicoApiUrl}/${orc._id}`, { method: 'DELETE' });
+                    }
+                } catch (e) {}
+                listaHistorico = listaHistorico.filter(r => r._id !== orc._id);
+                salvarHistoricoLocalBackup(listaHistorico);
+                renderizarTabelaOrcamentosPendentes();
+                showToast('Orçamento pendente descartado.', 'warning');
+            };
+
+            tbody.appendChild(tr);
+        });
+
+        if (totalEl) {
+            totalEl.textContent = formatarMoeda(somaPendentes);
+        }
+    }
+
+    const btnAbrirPendentesHeader = document.getElementById('btnAbrirPendentesHeader');
+    if (btnAbrirPendentesHeader) {
+        btnAbrirPendentesHeader.onclick = async () => {
+            await carregarHistorico();
+            renderizarTabelaOrcamentosPendentes();
+            pendentesModal.style.display = 'flex';
+        };
+    }
+
+    const fecharPendentesTop = document.getElementById('fecharPendentesTop');
+    if (fecharPendentesTop) fecharPendentesTop.onclick = () => pendentesModal.style.display = 'none';
+
+    // Carrega o histórico ao iniciar para já mostrar o número de Orçamentos Pendentes lá no topo!
+    carregarHistorico();
+
     window.onclick = function (event) {
         if (event.target === modal) fecharPainel();
         if (event.target === addModal) fecharAddPainel();
@@ -2310,6 +2577,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (event.target === orcamentoModal) orcamentoModal.style.display = 'none';
         if (event.target === dashboardModal) dashboardModal.style.display = 'none';
         if (event.target === historicoModal) historicoModal.style.display = 'none';
+        if (event.target === pendentesModal) pendentesModal.style.display = 'none';
     };
 
     await carregarPecas();
