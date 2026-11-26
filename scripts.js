@@ -979,12 +979,34 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     function atualizarBadgeOrcamento() {
         const badge = document.getElementById('badgeCountOrcamento');
-        if (!badge) return;
-        if (itensDoOrcamento.length > 0) {
-            badge.style.display = 'inline-block';
-            badge.textContent = itensDoOrcamento.length;
-        } else {
-            badge.style.display = 'none';
+        const floatingBar = document.getElementById('floatingOrcamentoBar');
+        const floatingCount = document.getElementById('floatingCartCount');
+        const floatingTotal = document.getElementById('floatingCartTotal');
+
+        const qtdTotalItens = itensDoOrcamento.reduce((acc, item) => acc + (Number(item.qtd) || 1), 0);
+        const valorLiquidoTotal = itensDoOrcamento.reduce((acc, item) => {
+            const bruto = (Number(item.qtd) || 1) * (Number(item.precoUnit) || 0);
+            return acc + Math.max(0, bruto - (Number(item.desconto) || 0));
+        }, 0);
+
+        if (badge) {
+            if (itensDoOrcamento.length > 0) {
+                badge.style.display = 'inline-block';
+                badge.textContent = itensDoOrcamento.length;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Atualiza o Carrinho Flutuante que acompanha a rolagem da página
+        if (floatingBar) {
+            if (itensDoOrcamento.length > 0) {
+                floatingBar.style.display = 'flex';
+                if (floatingCount) floatingCount.textContent = qtdTotalItens;
+                if (floatingTotal) floatingTotal.textContent = formatarMoeda(valorLiquidoTotal);
+            } else {
+                floatingBar.style.display = 'none';
+            }
         }
     }
 
@@ -1084,6 +1106,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     const btnAbrirOrcamento = document.getElementById('btnAbrirOrcamento');
     if (btnAbrirOrcamento) btnAbrirOrcamento.onclick = abrirModalOrcamento;
+
+    const btnAbrirOrcamentoFlutuante = document.getElementById('btnAbrirOrcamentoFlutuante');
+    if (btnAbrirOrcamentoFlutuante) btnAbrirOrcamentoFlutuante.onclick = abrirModalOrcamento;
 
     const fecharOrcamentoTop = document.getElementById('fecharOrcamentoTop');
     if (fecharOrcamentoTop) fecharOrcamentoTop.onclick = () => orcamentoModal.style.display = 'none';
@@ -1746,12 +1771,545 @@ document.addEventListener('DOMContentLoaded', async function () {
         };
     }
 
+    // ==========================================
+    // MÓDULO DE HISTÓRICO (ESTOQUE & VENDAS) E DASHBOARD GERENCIAL (CHART.JS)
+    // ==========================================
+    const historicoApiUrl = `${baseUrl}/historico`;
+    const dashboardModal = document.getElementById('dashboardModal');
+    const historicoModal = document.getElementById('historicoModal');
+    let listaHistorico = [];
+    let chartVendasInst = null;
+    let chartMarcasInst = null;
+    let chartValorMarcasInst = null;
+
+    function obterHistoricoLocalBackup() {
+        try {
+            return JSON.parse(localStorage.getItem('canada_historico_backup') || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function salvarHistoricoLocalBackup(lista) {
+        try {
+            localStorage.setItem('canada_historico_backup', JSON.stringify(lista.slice(0, 500)));
+        } catch (e) {}
+    }
+
+    async function carregarHistorico() {
+        try {
+            const resp = await fetch(historicoApiUrl);
+            if (resp.ok) {
+                const dadosRemotos = await resp.json();
+                if (Array.isArray(dadosRemotos)) {
+                    listaHistorico = dadosRemotos;
+                    salvarHistoricoLocalBackup(listaHistorico);
+                    return;
+                }
+            }
+        } catch (e) {}
+        listaHistorico = obterHistoricoLocalBackup();
+    }
+
+    async function registrarEventoHistorico(novoEvento) {
+        const eventoComData = {
+            _id: 'loc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            data: new Date().toISOString(),
+            ...novoEvento
+        };
+
+        try {
+            const resp = await fetch(historicoApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(novoEvento)
+            });
+            if (resp.ok) {
+                const salvoNoServidor = await resp.json();
+                await carregarHistorico();
+                await carregarPecas();
+                return salvoNoServidor;
+            }
+        } catch (e) {}
+
+        // Fallback imediato caso o Render ainda esteja atualizando a rota /historico
+        listaHistorico.unshift(eventoComData);
+        salvarHistoricoLocalBackup(listaHistorico);
+        return eventoComData;
+    }
+
+    // Confirmar Venda direto de dentro do Orçamento (Registra em Vendas + Histórico de Estoque + Dá Baixa no Estoque)
+    const btnFinalizarVendaOrcamento = document.getElementById('btnFinalizarVendaOrcamento');
+    if (btnFinalizarVendaOrcamento) {
+        btnFinalizarVendaOrcamento.onclick = async () => {
+            if (itensDoOrcamento.length === 0) {
+                showToast('Adicione pelo menos 1 item ao orçamento para confirmar a venda.', 'warning');
+                return;
+            }
+
+            const numOrc = document.getElementById('orcNumero').value || '0001';
+            const cliente = document.getElementById('orcClienteNome').value || 'Consumidor';
+            const vendedor = document.getElementById('orcVendedor').value || 'Admin';
+
+            const valorTotalVenda = itensDoOrcamento.reduce((acc, item) => {
+                const bruto = (Number(item.qtd) || 1) * (Number(item.precoUnit) || 0);
+                return acc + Math.max(0, bruto - (Number(item.desconto) || 0));
+            }, 0);
+
+            if (!confirm(`Confirmar a venda do Orçamento Nº ${numOrc} (${formatarMoeda(valorTotalVenda)}) e dar baixa automática das peças no estoque?`)) {
+                return;
+            }
+
+            btnFinalizarVendaOrcamento.disabled = true;
+            const originalHtml = btnFinalizarVendaOrcamento.innerHTML;
+            btnFinalizarVendaOrcamento.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Registrando Venda e Baixando Estoque...';
+
+            try {
+                const resumoNomes = itensDoOrcamento.map(i => `${i.qtd}x ${i.descricao}`).join(', ');
+                const qtdTotalPecas = itensDoOrcamento.reduce((acc, i) => acc + (Number(i.qtd) || 1), 0);
+
+                await registrarEventoHistorico({
+                    tipo: 'venda',
+                    codigoPeca: `ORC-${numOrc}`,
+                    nomePeca: resumoNomes,
+                    quantidade: qtdTotalPecas,
+                    valorUnitario: valorTotalVenda,
+                    valorTotal: valorTotalVenda,
+                    motivo: `Venda Confirmada — Orçamento Nº ${numOrc}`,
+                    cliente,
+                    vendedor,
+                    orcamentoNumero: numOrc,
+                    baixarEstoque: true,
+                    itensVenda: itensDoOrcamento.map(i => ({
+                        codigo: i.codigo,
+                        descricao: i.descricao,
+                        qtd: i.qtd,
+                        precoUnit: i.precoUnit,
+                        desconto: i.desconto,
+                        total: Math.max(0, (i.qtd * i.precoUnit) - i.desconto)
+                    }))
+                });
+
+                showToast(`Venda do Orçamento Nº ${numOrc} registrada no Histórico e estoque atualizado!`, 'success');
+            } catch (e) {
+                showToast('Erro ao registrar venda.', 'error');
+            } finally {
+                btnFinalizarVendaOrcamento.disabled = false;
+                btnFinalizarVendaOrcamento.innerHTML = originalHtml;
+            }
+        };
+    }
+
+    // ==========================================
+    // RENDERIZAÇÃO DO HISTÓRICO (2 ABAS: ESTOQUE & VENDAS)
+    // ==========================================
+    function formatarDataHoraBR(isoStr) {
+        if (!isoStr) return '-';
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return '-';
+        return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    function renderizarTabelasHistorico() {
+        const tbodyEstoque = document.getElementById('tabelaHistEstoqueBody');
+        const tbodyVendas = document.getElementById('tabelaHistVendasBody');
+        const totalVendidoEl = document.getElementById('histTotalGeralVendido');
+
+        // 1. Filtra Saídas de Estoque (inclui saídas manuais e vendas que tiraram peça do estoque)
+        const registrosSaida = listaHistorico.filter(r => r.tipo === 'saida_estoque' || r.tipo === 'venda');
+        if (tbodyEstoque) {
+            tbodyEstoque.innerHTML = '';
+            if (registrosSaida.length === 0) {
+                tbodyEstoque.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#777; padding:18px;">Nenhuma saída de estoque registrada ainda.</td></tr>`;
+            } else {
+                registrosSaida.forEach(reg => {
+                    const tr = document.createElement('tr');
+                    const isVenda = reg.tipo === 'venda' || String(reg.motivo || '').toLowerCase().includes('venda');
+                    const badgeMotivo = isVenda
+                        ? `<span style="background:#27ae60; color:#fff; padding:3px 9px; border-radius:12px; font-size:0.78rem; font-weight:700;"><i class="fa-solid fa-tag"></i> ${reg.motivo || 'Saída por Venda'}</span>`
+                        : `<span style="background:#e67e22; color:#fff; padding:3px 9px; border-radius:12px; font-size:0.78rem; font-weight:700;"><i class="fa-solid fa-box-open"></i> ${reg.motivo || 'Baixa de Estoque'}</span>`;
+
+                    tr.innerHTML = `
+                        <td style="white-space:nowrap;">${formatarDataHoraBR(reg.data)}</td>
+                        <td><strong>#${reg.codigoPeca || '-'}</strong></td>
+                        <td>${reg.nomePeca || '-'}</td>
+                        <td><strong>-${reg.quantidade || 1} un.</strong></td>
+                        <td>${badgeMotivo}${reg.cliente && reg.cliente !== 'Consumidor' ? `<br><small style="color:#555;">Cliente: ${reg.cliente}</small>` : ''}</td>
+                        <td><strong>${formatarMoeda(reg.valorTotal || 0)}</strong></td>
+                        <td style="text-align:center;">
+                            <button type="button" class="btn-action btn-delete" title="Apagar registro"><i class="fa fa-trash"></i></button>
+                        </td>
+                    `;
+                    tr.querySelector('.btn-delete').onclick = () => excluirRegistroHistorico(reg._id);
+                    tbodyEstoque.appendChild(tr);
+                });
+            }
+        }
+
+        // 2. Filtra Histórico de Vendas / Compras dos Clientes
+        const registrosVendas = listaHistorico.filter(r =>
+            r.tipo === 'venda' ||
+            String(r.motivo || '').toLowerCase().includes('venda')
+        );
+
+        let somaTotalVendas = 0;
+        if (tbodyVendas) {
+            tbodyVendas.innerHTML = '';
+            if (registrosVendas.length === 0) {
+                tbodyVendas.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#777; padding:18px;">Nenhuma venda registrada ainda. Registre uma saída por venda ou confirme um Orçamento!</td></tr>`;
+            } else {
+                registrosVendas.forEach(reg => {
+                    const vlr = Number(reg.valorTotal) || 0;
+                    somaTotalVendas += vlr;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="white-space:nowrap;">${formatarDataHoraBR(reg.data)}</td>
+                        <td><strong>${reg.cliente || 'Consumidor'}</strong></td>
+                        <td>
+                            <strong>${reg.nomePeca || '-'}</strong>
+                            <br><small style="color:#666;">Cód: #${reg.codigoPeca || '-'} • Qtd: ${reg.quantidade || 1} un. • ${reg.motivo || 'Venda'}</small>
+                        </td>
+                        <td>${reg.vendedor || 'Admin'}</td>
+                        <td><strong style="color:#27ae60; font-size:1rem;">${formatarMoeda(vlr)}</strong></td>
+                        <td style="text-align:center;">
+                            <button type="button" class="btn-action btn-delete" title="Apagar registro"><i class="fa fa-trash"></i></button>
+                        </td>
+                    `;
+                    tr.querySelector('.btn-delete').onclick = () => excluirRegistroHistorico(reg._id);
+                    tbodyVendas.appendChild(tr);
+                });
+            }
+        }
+
+        if (totalVendidoEl) {
+            totalVendidoEl.textContent = formatarMoeda(somaTotalVendas);
+        }
+    }
+
+    async function excluirRegistroHistorico(idReg) {
+        if (!confirm('Deseja remover este registro do histórico?')) return;
+        try {
+            if (idReg && !String(idReg).startsWith('loc_')) {
+                await fetch(`${historicoApiUrl}/${idReg}`, { method: 'DELETE' });
+            }
+        } catch (e) {}
+        listaHistorico = listaHistorico.filter(r => r._id !== idReg);
+        salvarHistoricoLocalBackup(listaHistorico);
+        renderizarTabelasHistorico();
+        showToast('Registro removido do histórico.', 'warning');
+    }
+
+    // Alternar entre os 2 botões dentro do Histórico (Histórico de Estoque vs Histórico de Compra/Vendas)
+    const tabBtnHistEstoque = document.getElementById('tabBtnHistEstoque');
+    const tabBtnHistVendas = document.getElementById('tabBtnHistVendas');
+    const abaHistoricoEstoque = document.getElementById('abaHistoricoEstoque');
+    const abaHistoricoVendas = document.getElementById('abaHistoricoVendas');
+
+    if (tabBtnHistEstoque && tabBtnHistVendas) {
+        tabBtnHistEstoque.onclick = () => {
+            tabBtnHistEstoque.classList.add('active');
+            tabBtnHistVendas.classList.remove('active');
+            abaHistoricoEstoque.style.display = 'block';
+            abaHistoricoVendas.style.display = 'none';
+        };
+        tabBtnHistVendas.onclick = () => {
+            tabBtnHistVendas.classList.add('active');
+            tabBtnHistEstoque.classList.remove('active');
+            abaHistoricoVendas.style.display = 'block';
+            abaHistoricoEstoque.style.display = 'none';
+        };
+    }
+
+    const btnAbrirHistorico = document.getElementById('btnAbrirHistorico');
+    if (btnAbrirHistorico) {
+        btnAbrirHistorico.onclick = async () => {
+            atualizarDatalistEstoqueOrcamento();
+            await carregarHistorico();
+            renderizarTabelasHistorico();
+            historicoModal.style.display = 'flex';
+        };
+    }
+
+    const fecharHistoricoTop = document.getElementById('fecharHistoricoTop');
+    if (fecharHistoricoTop) fecharHistoricoTop.onclick = () => historicoModal.style.display = 'none';
+
+    // Registrar nova Saída/Baixa de Estoque manualmente
+    const btnRegistrarSaidaEstoque = document.getElementById('btnRegistrarSaidaEstoque');
+    if (btnRegistrarSaidaEstoque) {
+        btnRegistrarSaidaEstoque.onclick = async () => {
+            const textoPeca = document.getElementById('histSaidaPecaInput').value.trim();
+            if (!textoPeca) {
+                showToast('Selecione a peça que está saindo do estoque.', 'warning');
+                return;
+            }
+
+            let pecaAlvo = null;
+            if (textoPeca.startsWith('#')) {
+                const codExtraido = textoPeca.split(' - ')[0].replace('#', '').trim();
+                pecaAlvo = listaDePecas.find(p => String(p.id).trim() === codExtraido);
+            }
+            if (!pecaAlvo) {
+                const termo = textoPeca.toLowerCase();
+                pecaAlvo = listaDePecas.find(p =>
+                    String(p.id || '').toLowerCase() === termo ||
+                    String(p.nome || '').toLowerCase().includes(termo)
+                );
+            }
+
+            if (!pecaAlvo) {
+                showToast('Peça não encontrada no estoque.', 'warning');
+                return;
+            }
+
+            const qtdSaida = Math.max(1, parseInt(document.getElementById('histSaidaQtd').value) || 1);
+            const motivo = document.getElementById('histSaidaMotivo').value;
+            const cliente = document.getElementById('histSaidaCliente').value.trim() || 'Consumidor';
+            const precoUnit = parseFloat(String(pecaAlvo.preco || 0).replace(',', '.')) || 0;
+            const isMotivoVenda = motivo.toLowerCase().includes('venda');
+
+            btnRegistrarSaidaEstoque.disabled = true;
+            btnRegistrarSaidaEstoque.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Salvando...';
+
+            try {
+                // Atualiza também o estoque via PUT caso a rota /historico ainda esteja subindo no Render
+                const novoEstoque = Math.max(0, (parseInt(pecaAlvo.estoque) || 0) - qtdSaida);
+                const fd = new FormData();
+                fd.append('id', pecaAlvo.id || '');
+                fd.append('nome', pecaAlvo.nome || '');
+                fd.append('marca', pecaAlvo.marca || '');
+                fd.append('estoque', novoEstoque);
+                fd.append('preco', precoUnit);
+                fd.append('localizacao', pecaAlvo.localizacao || '');
+                fd.append('imagensUrlsMantidas', JSON.stringify(pecaAlvo.imagensUrls || (pecaAlvo.imagemUrl ? [pecaAlvo.imagemUrl] : [])));
+                await fetch(`${apiUrl}/${pecaAlvo._id}`, { method: 'PUT', body: fd }).catch(() => {});
+
+                await registrarEventoHistorico({
+                    tipo: isMotivoVenda ? 'venda' : 'saida_estoque',
+                    pecaId: pecaAlvo._id,
+                    codigoPeca: pecaAlvo.id,
+                    nomePeca: pecaAlvo.nome,
+                    marca: pecaAlvo.marca,
+                    quantidade: qtdSaida,
+                    valorUnitario: precoUnit,
+                    valorTotal: precoUnit * qtdSaida,
+                    motivo,
+                    cliente,
+                    vendedor: 'Admin',
+                    baixarEstoque: false // Já descontou via PUT acima para evitar desconto duplo
+                });
+
+                await carregarPecas();
+                document.getElementById('histSaidaPecaInput').value = '';
+                document.getElementById('histSaidaQtd').value = '1';
+                document.getElementById('histSaidaCliente').value = '';
+                renderizarTabelasHistorico();
+                showToast(`Saída de ${qtdSaida} un. de "${pecaAlvo.nome}" registrada e estoque atualizado!`, 'success');
+            } finally {
+                btnRegistrarSaidaEstoque.disabled = false;
+                btnRegistrarSaidaEstoque.innerHTML = '<i class="fa-solid fa-check"></i> Registrar Saída';
+            }
+        };
+    }
+
+    // ==========================================
+    // DASHBOARD GERENCIAL COM GRÁFICOS (CHART.JS)
+    // ==========================================
+    async function abrirDashboardGerencial() {
+        await carregarHistorico();
+        dashboardModal.style.display = 'flex';
+
+        const agora = new Date();
+        const mesAtual = agora.getMonth();
+        const anoAtual = agora.getFullYear();
+
+        // 1. Cálculo de Vendas e Saídas no Mês Atual
+        let valorVendasMes = 0;
+        let qtdVendasMes = 0;
+        let qtdPecasSairamMes = 0;
+
+        listaHistorico.forEach(reg => {
+            const d = new Date(reg.data);
+            if (!isNaN(d.getTime()) && d.getMonth() === mesAtual && d.getFullYear() === anoAtual) {
+                const isVenda = reg.tipo === 'venda' || String(reg.motivo || '').toLowerCase().includes('venda');
+                if (isVenda) {
+                    valorVendasMes += (Number(reg.valorTotal) || 0);
+                    qtdVendasMes += 1;
+                }
+                qtdPecasSairamMes += (Number(reg.quantidade) || 1);
+            }
+        });
+
+        // 2. Cálculo de Estoque Total e Peças com Pouco Estoque (<= 1 un.)
+        let valorTotalEstoque = 0;
+        let totalUnidadesEstoque = 0;
+        const pecasEstoqueBaixo = [];
+        const contagemPorMarca = {};
+        const valorPorMarca = {};
+
+        listaDePecas.forEach(p => {
+            const qtd = parseInt(p.estoque || 0) || 0;
+            const preco = parseFloat(String(p.preco || 0).replace(',', '.')) || 0;
+            valorTotalEstoque += (qtd * preco);
+            totalUnidadesEstoque += qtd;
+
+            if (qtd <= 1) {
+                pecasEstoqueBaixo.push(p);
+            }
+
+            const marcaLimpa = (p.marca || 'Outros').trim();
+            const marcaFormatada = marcaLimpa ? (marcaLimpa.charAt(0).toUpperCase() + marcaLimpa.slice(1).toLowerCase()) : 'Outros';
+            contagemPorMarca[marcaFormatada] = (contagemPorMarca[marcaFormatada] || 0) + 1;
+            valorPorMarca[marcaFormatada] = (valorPorMarca[marcaFormatada] || 0) + (qtd * preco);
+        });
+
+        // Atualiza Cards KPIs
+        document.getElementById('kpiVendasMesValor').textContent = formatarMoeda(valorVendasMes);
+        document.getElementById('kpiVendasMesQtd').textContent = `${qtdVendasMes} vendas registradas neste mês`;
+        document.getElementById('kpiValorTotalEstoque').textContent = formatarMoeda(valorTotalEstoque);
+        document.getElementById('kpiTotalItensEstoque').textContent = `${listaDePecas.length} cadastros (${totalUnidadesEstoque} un.)`;
+        document.getElementById('kpiEstoqueBaixoCount').textContent = `${pecasEstoqueBaixo.length} peças`;
+        document.getElementById('kpiSaidasMesCount').textContent = `${qtdPecasSairamMes} un.`;
+
+        // Preenche Tabela de Peças com Pouco Estoque
+        const tbodyBaixo = document.getElementById('dashTabelaEstoqueBaixo');
+        if (tbodyBaixo) {
+            tbodyBaixo.innerHTML = '';
+            if (pecasEstoqueBaixo.length === 0) {
+                tbodyBaixo.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#27ae60; font-weight:700;">Nenhuma peça com estoque baixo! Tudo abastecido.</td></tr>`;
+            } else {
+                pecasEstoqueBaixo.slice(0, 40).forEach(p => {
+                    const qtd = parseInt(p.estoque || 0) || 0;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>#${p.id || '-'}</strong></td>
+                        <td>${p.nome || '-'}</td>
+                        <td>${p.marca || '-'}</td>
+                        <td><span class="badge-estoque-baixo" style="background:${qtd === 0 ? '#e74c3c' : '#ffc107'}; color:${qtd === 0 ? '#fff' : '#000'};">${qtd} un.</span></td>
+                        <td>${p.localizacao || '-'}</td>
+                    `;
+                    tbodyBaixo.appendChild(tr);
+                });
+            }
+        }
+
+        if (typeof Chart === 'undefined') return;
+
+        // 3. Gráfico 1: Vendas dos Últimos 6 Meses
+        const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const labelsMeses = [];
+        const valoresMeses = [];
+
+        for (let i = 5; i >= 0; i--) {
+            const dRef = new Date(anoAtual, mesAtual - i, 1);
+            const m = dRef.getMonth();
+            const a = dRef.getFullYear();
+            labelsMeses.push(`${nomesMeses[m]}/${String(a).slice(-2)}`);
+
+            let somaM = 0;
+            listaHistorico.forEach(reg => {
+                const d = new Date(reg.data);
+                const isVenda = reg.tipo === 'venda' || String(reg.motivo || '').toLowerCase().includes('venda');
+                if (isVenda && !isNaN(d.getTime()) && d.getMonth() === m && d.getFullYear() === a) {
+                    somaM += (Number(reg.valorTotal) || 0);
+                }
+            });
+            valoresMeses.push(somaM);
+        }
+
+        const ctxVendas = document.getElementById('chartVendasMes');
+        if (ctxVendas) {
+            if (chartVendasInst) chartVendasInst.destroy();
+            chartVendasInst = new Chart(ctxVendas, {
+                type: 'bar',
+                data: {
+                    labels: labelsMeses,
+                    datasets: [{
+                        label: 'Vendas no Mês (R$)',
+                        data: valoresMeses,
+                        backgroundColor: '#27ae60',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // 4. Gráfico 2: Distribuição do Estoque por Marca (Top 7)
+        const marcasOrdenadasQtd = Object.entries(contagemPorMarca)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 7);
+
+        const ctxMarcas = document.getElementById('chartEstoqueMarcas');
+        if (ctxMarcas) {
+            if (chartMarcasInst) chartMarcasInst.destroy();
+            chartMarcasInst = new Chart(ctxMarcas, {
+                type: 'doughnut',
+                data: {
+                    labels: marcasOrdenadasQtd.map(e => e[0]),
+                    datasets: [{
+                        data: marcasOrdenadasQtd.map(e => e[1]),
+                        backgroundColor: ['#FFC300', '#1a1a1a', '#e74c3c', '#2980b9', '#27ae60', '#8e44ad', '#e67e22']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+        }
+
+        // 5. Gráfico 3: Top Marcas por Valor em Estoque (R$)
+        const marcasOrdenadasValor = Object.entries(valorPorMarca)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6);
+
+        const ctxValorMarcas = document.getElementById('chartValorMarcas');
+        if (ctxValorMarcas) {
+            if (chartValorMarcasInst) chartValorMarcasInst.destroy();
+            chartValorMarcasInst = new Chart(ctxValorMarcas, {
+                type: 'bar',
+                data: {
+                    labels: marcasOrdenadasValor.map(e => e[0]),
+                    datasets: [{
+                        label: 'Valor em Estoque (R$)',
+                        data: marcasOrdenadasValor.map(e => e[1]),
+                        backgroundColor: '#1a1a1a',
+                        borderColor: '#FFC300',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    const btnAbrirDashboard = document.getElementById('btnAbrirDashboard');
+    if (btnAbrirDashboard) btnAbrirDashboard.onclick = abrirDashboardGerencial;
+
+    const fecharDashboardTop = document.getElementById('fecharDashboardTop');
+    if (fecharDashboardTop) fecharDashboardTop.onclick = () => dashboardModal.style.display = 'none';
+
     window.onclick = function (event) {
         if (event.target === modal) fecharPainel();
         if (event.target === addModal) fecharAddPainel();
         if (event.target === resetDbModal) resetDbModal.style.display = 'none';
         if (event.target === apkDownloadModal) apkDownloadModal.style.display = 'none';
         if (event.target === orcamentoModal) orcamentoModal.style.display = 'none';
+        if (event.target === dashboardModal) dashboardModal.style.display = 'none';
+        if (event.target === historicoModal) historicoModal.style.display = 'none';
     };
 
     await carregarPecas();

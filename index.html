@@ -13,6 +13,8 @@
     <!-- Bibliotecas jsPDF e AutoTable para gerar o arquivo .PDF direto com 1 clique -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <!-- Biblioteca Chart.js para os Gráficos do Dashboard da Empresa -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body>
@@ -29,6 +31,12 @@
             </div>
         </div>
         <div class="user-profile header-actions">
+            <button id="btnAbrirDashboard" class="btn-header-nav btn-nav-dashboard" title="Ver Gráficos de Vendas, Estoque Baixo e Métricas da Empresa">
+                <i class="fa-solid fa-chart-pie"></i> Dashboard
+            </button>
+            <button id="btnAbrirHistorico" class="btn-header-nav btn-nav-historico" title="Ver Histórico de Saída de Estoque e Histórico de Vendas">
+                <i class="fa-solid fa-clock-rotate-left"></i> Histórico
+            </button>
             <span id="serverStatusBadge" class="badge-server-online"
                 title="Bot Keep-Alive Ativo - Servidor Render Acordado">
                 <i class="fa-solid fa-bolt"></i> Servidor Ativo
@@ -526,12 +534,233 @@
                     <i class="fa fa-times"></i> Fechar
                 </button>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" id="btnFinalizarVendaOrcamento" class="btn" style="background:#2980b9; color:#fff;" title="Registra no Histórico de Vendas e desconta as peças do estoque automaticamente">
+                        <i class="fa-solid fa-cart-check"></i> Confirmar Venda & Dar Baixa no Estoque
+                    </button>
                     <button type="button" id="btnGerarPdfDireto" class="btn" style="background:#25D366; color:#fff;">
                         <i class="fa-solid fa-file-pdf"></i> Baixar PDF Direto (Para Enviar no WhatsApp)
                     </button>
                     <button type="button" id="btnImprimirOrcamento" class="btn" style="background:#1a1a1a; color:var(--cor-amarelo);">
                         <i class="fa-solid fa-print"></i> Imprimir Folha A4
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARRINHO FLUTUANTE DE ORÇAMENTO (ACOMPANHA QUANDO A PESSOA DESCE A PÁGINA) -->
+    <div id="floatingOrcamentoBar" class="floating-orcamento-cart" style="display: none;">
+        <div class="floating-cart-info">
+            <div class="floating-cart-icon">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span id="floatingCartCount" class="floating-cart-badge">0</span>
+            </div>
+            <div class="floating-cart-text">
+                <span>Orçamento em montagem</span>
+                <strong id="floatingCartTotal">R$ 0,00</strong>
+            </div>
+        </div>
+        <button type="button" id="btnAbrirOrcamentoFlutuante" class="btn-floating-cart-open">
+            Ver Orçamento / PDF <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        </button>
+    </div>
+
+    <!-- MODAL DASHBOARD DA EMPRESA (GRÁFICOS E MÉTRICAS) -->
+    <div id="dashboardModal" class="side-panel-overlay">
+        <div class="side-panel side-panel-orcamento" style="max-width: 1120px !important;">
+            <div class="side-panel-header">
+                <h2><i class="fa-solid fa-chart-line"></i> Dashboard Gerencial — Canada Auto Peças</h2>
+                <span class="close-btn" id="fecharDashboardTop"><i class="fa fa-times"></i></span>
+            </div>
+            <div class="side-panel-content">
+                <!-- Cards de KPIs -->
+                <div class="dash-kpi-grid">
+                    <div class="dash-kpi-card kpi-green">
+                        <div class="kpi-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div class="kpi-data">
+                            <span>Vendas no Mês Atual</span>
+                            <strong id="kpiVendasMesValor">R$ 0,00</strong>
+                            <small id="kpiVendasMesQtd">0 vendas registradas</small>
+                        </div>
+                    </div>
+                    <div class="dash-kpi-card kpi-yellow">
+                        <div class="kpi-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+                        <div class="kpi-data">
+                            <span>Valor Total em Estoque</span>
+                            <strong id="kpiValorTotalEstoque">R$ 0,00</strong>
+                            <small id="kpiTotalItensEstoque">0 peças cadastradas</small>
+                        </div>
+                    </div>
+                    <div class="dash-kpi-card kpi-red">
+                        <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="kpi-data">
+                            <span>Peças com Pouco Estoque</span>
+                            <strong id="kpiEstoqueBaixoCount">0 peças</strong>
+                            <small>Com 1 un. ou zeradas</small>
+                        </div>
+                    </div>
+                    <div class="dash-kpi-card kpi-blue">
+                        <div class="kpi-icon"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+                        <div class="kpi-data">
+                            <span>Peças que Saíram no Mês</span>
+                            <strong id="kpiSaidasMesCount">0 un.</strong>
+                            <small>Movimentações de saída</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos Principais -->
+                <div class="dash-charts-grid">
+                    <div class="panel-section" style="background: rgba(255,255,255,0.95); margin-bottom:0;">
+                        <h3><i class="fa-solid fa-chart-column"></i> Faturamento & Vendas (Últimos Meses)</h3>
+                        <div class="chart-box">
+                            <canvas id="chartVendasMes"></canvas>
+                        </div>
+                    </div>
+                    <div class="panel-section" style="background: rgba(255,255,255,0.95); margin-bottom:0;">
+                        <h3><i class="fa-solid fa-car"></i> Distribuição do Estoque por Marca</h3>
+                        <div class="chart-box">
+                            <canvas id="chartEstoqueMarcas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico + Tabela de Produtos com Pouco Estoque -->
+                <div class="dash-charts-grid" style="margin-top: 18px;">
+                    <div class="panel-section" style="background: rgba(255,255,255,0.95); margin-bottom:0;">
+                        <h3><i class="fa-solid fa-bell" style="color:#e74c3c;"></i> Alerta: Produtos com Pouco Estoque (&le; 1 un.)</h3>
+                        <div class="table-wrapper" style="max-height: 270px; overflow-y: auto; background:#fff;">
+                            <table class="orc-items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Peça</th>
+                                        <th>Marca</th>
+                                        <th>Estoque</th>
+                                        <th>Local</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashTabelaEstoqueBaixo"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="panel-section" style="background: rgba(255,255,255,0.95); margin-bottom:0;">
+                        <h3><i class="fa-solid fa-ranking-star"></i> Top Marcas por Valor em Estoque (R$)</h3>
+                        <div class="chart-box">
+                            <canvas id="chartValorMarcas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE HISTÓRICO (COM OS 2 BOTÕES: HISTÓRICO DE ESTOQUE & HISTÓRICO DE VENDAS/COMPRAS) -->
+    <div id="historicoModal" class="side-panel-overlay">
+        <div class="side-panel side-panel-orcamento" style="max-width: 1080px !important;">
+            <div class="side-panel-header">
+                <h2><i class="fa-solid fa-clock-rotate-left"></i> Central de Histórico — Estoque & Vendas</h2>
+                <span class="close-btn" id="fecharHistoricoTop"><i class="fa fa-times"></i></span>
+            </div>
+
+            <div class="side-panel-content">
+                <!-- DOIS BOTÕES DE SELEÇÃO INTERNA DO HISTÓRICO -->
+                <div class="historico-tabs-bar">
+                    <button type="button" id="tabBtnHistEstoque" class="hist-tab-btn active">
+                        <i class="fa-solid fa-boxes-packing"></i> Histórico de Estoque (Saídas / Baixas)
+                    </button>
+                    <button type="button" id="tabBtnHistVendas" class="hist-tab-btn">
+                        <i class="fa-solid fa-cash-register"></i> Histórico de Compra / Vendas Realizadas
+                    </button>
+                </div>
+
+                <!-- ABA 1: HISTÓRICO DE ESTOQUE (SAÍDA POR VENDA OU OUTRO MOTIVO) -->
+                <div id="abaHistoricoEstoque">
+                    <div class="panel-section" style="background: rgba(255,255,255,0.93);">
+                        <h3><i class="fa-solid fa-minus-circle"></i> Registrar Nova Saída / Baixa de Estoque</h3>
+                        <p style="font-size:0.85rem; color:#444; margin-bottom:10px;">
+                            Registre quando uma peça sair do estoque (por venda avulsa no balcão, garantia, uso interno ou avaria). O sistema já desconta do estoque automaticamente:
+                        </p>
+                        <div class="orc-add-row">
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label>Peça do Estoque *</label>
+                                <input type="text" id="histSaidaPecaInput" class="form-control" list="orcEstoqueDatalist" placeholder="Digite o código ou nome da peça...">
+                            </div>
+                            <div class="form-group" style="width: 85px;">
+                                <label>Qtd. Saída</label>
+                                <input type="number" id="histSaidaQtd" class="form-control" value="1" min="1">
+                            </div>
+                            <div class="form-group" style="flex: 1.3; min-width: 160px;">
+                                <label>Motivo da Saída *</label>
+                                <select id="histSaidaMotivo" class="form-control">
+                                    <option value="Venda no Balcão">Venda no Balcão</option>
+                                    <option value="Venda pelo WhatsApp">Venda pelo WhatsApp</option>
+                                    <option value="Garantia / Troca">Garantia / Troca</option>
+                                    <option value="Peça com Avaria / Descarte">Peça com Avaria / Descarte</option>
+                                    <option value="Ajuste Manual de Estoque">Ajuste Manual de Estoque</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="width: 140px;">
+                                <label>Cliente / Obs</label>
+                                <input type="text" id="histSaidaCliente" class="form-control" placeholder="Opcional">
+                            </div>
+                            <button type="button" id="btnRegistrarSaidaEstoque" class="btn btn-save-panel" style="height: 41px;">
+                                <i class="fa-solid fa-check"></i> Registrar Saída
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel-section" style="background: rgba(255,255,255,0.96); margin-bottom:0;">
+                        <h3><i class="fa-solid fa-list-ul"></i> Movimentações de Saída do Estoque</h3>
+                        <div class="table-wrapper" style="background:#fff; max-height: 360px; overflow-y:auto;">
+                            <table class="orc-items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data / Hora</th>
+                                        <th>Código</th>
+                                        <th>Peça</th>
+                                        <th>Qtd</th>
+                                        <th>Motivo da Saída</th>
+                                        <th>Valor Ref.</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaHistEstoqueBody">
+                                    <tr><td colspan="7" style="text-align:center; color:#777;">Carregando histórico de estoque...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 2: HISTÓRICO DE COMPRA / VENDAS (CONTROLE DO QUE FOI VENDIDO) -->
+                <div id="abaHistoricoVendas" style="display: none;">
+                    <div class="panel-section" style="background: rgba(255,255,255,0.96); margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                            <h3 style="margin-bottom:0; border:none;"><i class="fa-solid fa-receipt"></i> Registro Geral do que foi Vendido</h3>
+                            <div style="background:#1a1a1a; color:var(--cor-amarelo); padding:8px 16px; border-radius:8px; font-weight:700;">
+                                Total Vendido no Histórico: <strong id="histTotalGeralVendido">R$ 0,00</strong>
+                            </div>
+                        </div>
+
+                        <div class="table-wrapper" style="background:#fff; max-height: 440px; overflow-y:auto;">
+                            <table class="orc-items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data / Hora</th>
+                                        <th>Cliente</th>
+                                        <th>Peças / Descrição da Venda</th>
+                                        <th>Vendedor</th>
+                                        <th>Valor Total</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaHistVendasBody">
+                                    <tr><td colspan="6" style="text-align:center; color:#777;">Carregando histórico de vendas...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
