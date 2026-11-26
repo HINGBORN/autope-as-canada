@@ -1730,3 +1730,66 @@ footer {
     border-color: #111;
     box-shadow: 0 6px 16px rgba(255, 195, 0, 0.35);
 }
+
+
+/* ========================================== */
+/* ALINHAMENTO DO CABEÇALHO E BOTÃO ADMIN     */
+/* ========================================== */
+.app-header {
+    gap: 16px;
+}
+
+.brand-text h1 {
+    white-space: nowrap;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+
+.header-actions button,
+.header-actions .badge-admin {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.header-divider {
+    width: 1px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.18);
+    margin: 0 2px;
+    flex-shrink: 0;
+}
+
+.btn-admin-profile {
+    cursor: pointer;
+    background: rgba(255, 195, 0, 0.14) !important;
+    border: 1px solid rgba(255, 195, 0, 0.45) !important;
+    padding: 8px 15px !important;
+    transition: all 0.2s ease;
+}
+
+.btn-admin-profile:hover {
+    background: rgba(255, 195, 0, 0.28) !important;
+    border-color: var(--cor-amarelo) !important;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 960px) {
+    .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem 1.2rem;
+    }
+    .header-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .header-divider {
+        display: none;
+    }
+}

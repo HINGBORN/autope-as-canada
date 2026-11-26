@@ -37,19 +37,20 @@
             <button id="btnAbrirHistorico" class="btn-header-nav btn-nav-historico" title="Ver Histórico de Saída de Estoque e Histórico de Vendas">
                 <i class="fa-solid fa-clock-rotate-left"></i> Histórico
             </button>
-            <span id="serverStatusBadge" class="badge-server-online"
-                title="Bot Keep-Alive Ativo - Servidor Render Acordado">
-                <i class="fa-solid fa-bolt"></i> Servidor Ativo
-            </span>
             <button id="btnAbrirModalApk" class="btn-download-apk-header"
                 title="Baixar Aplicativo Android Leitor de QR Code">
-                <i class="fa-brands fa-android"></i> Baixar App Android
+                <i class="fa-brands fa-android"></i> Baixar App
             </button>
             <button id="btnZerarBanco" class="btn-reset-db"
                 title="Apagar todas as peças do banco de dados para reenviar do zero">
                 <i class="fa-solid fa-trash-can"></i> Zerar Banco
             </button>
-            <span class="badge-admin"><i class="fa-solid fa-user-shield"></i> Admin</span>
+            <div class="header-divider"></div>
+            <button type="button" id="btnPerfilUsuarioHeader" class="badge-admin btn-admin-profile" title="Perfil do Usuário / Administração">
+                <i class="fa-solid fa-user-shield"></i>
+                <span id="nomeUsuarioHeader">Admin</span>
+                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; opacity: 0.7; margin-left: 2px;"></i>
+            </button>
         </div>
     </header>
 
