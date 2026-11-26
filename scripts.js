@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async function () {
 
-    const apiUrl = 'https://autopecascanada.onrender.com/pecas';
+    const baseUrl = 'https://autopecascanada.onrender.com';
+    const apiUrl = `${baseUrl}/pecas`;
     const tableBody = document.getElementById('tableBody');
     const searchInput = document.getElementById('searchInput');
     const filtroMarca = document.getElementById('filtroMarca');
@@ -13,10 +14,72 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     const modal = document.getElementById('detalhesModal');
     const addModal = document.getElementById('addModal');
+    const resetDbModal = document.getElementById('resetDbModal');
+    const apkDownloadModal = document.getElementById('apkDownloadModal');
+    const urlDownloadDiretoApk = 'https://github.com/HINGBORN/autope-as-canada/raw/main/CanadaAutoPecas.apk';
+
+    // ==========================================
+    // MODAL DE DOWNLOAD DIRETO DO APK ANDROID (1 CLIQUE OU QR CODE)
+    // ==========================================
+    const btnAbrirModalApk = document.getElementById('btnAbrirModalApk');
+    if (btnAbrirModalApk && apkDownloadModal) {
+        btnAbrirModalApk.onclick = () => {
+            const qrApkContainer = document.getElementById('qrCodeDownloadApk');
+            if (qrApkContainer && typeof QRCode !== 'undefined') {
+                qrApkContainer.innerHTML = '';
+                new QRCode(qrApkContainer, {
+                    text: urlDownloadDiretoApk,
+                    width: 170,
+                    height: 170,
+                    colorDark: '#111111',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            }
+            apkDownloadModal.style.display = 'flex';
+        };
+    }
+
+    const fecharApkModal = document.getElementById('fecharApkModal');
+    if (fecharApkModal) {
+        fecharApkModal.onclick = () => apkDownloadModal.style.display = 'none';
+    }
+
+    const btnEnviarApkWhats = document.getElementById('btnEnviarApkWhats');
+    if (btnEnviarApkWhats) {
+        btnEnviarApkWhats.onclick = () => {
+            const msg = `📱 *Aplicativo Android - Canada Auto Peças (Leitor QR Code)*\n\n` +
+                `Clique no link abaixo pelo celular para baixar e instalar direto (sem precisar descompactar .zip):\n` +
+                `${urlDownloadDiretoApk}`;
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        };
+    }
 
     const emptyState = document.getElementById('emptyState');
     const tableWrapper = document.getElementById('tableWrapper');
     const dashboardMetrics = document.getElementById('dashboardMetrics');
+
+    // ==========================================
+    // BOT KEEP-ALIVE NO FRONTEND (Evita Render dormir enquanto painel estiver aberto)
+    // ==========================================
+    async function pingServidor() {
+        const badge = document.getElementById('serverStatusBadge');
+        try {
+            const resp = await fetch(`${baseUrl}/`, { method: 'GET' });
+            if (resp.ok && badge) {
+                badge.className = 'badge-server-online';
+                badge.innerHTML = '<i class="fa-solid fa-bolt"></i> Servidor Online';
+            }
+        } catch (err) {
+            if (badge) {
+                badge.className = 'badge-server-waking';
+                badge.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Acordando Render...';
+            }
+        }
+    }
+    // Dispara imediatamente e a cada 5 minutos
+    pingServidor();
+    setInterval(pingServidor, 5 * 60 * 1000);
 
     // ==========================================
     // SISTEMA DE NOTIFICAÇÕES (TOAST)
@@ -46,7 +109,173 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // ==========================================
-    // NOVO: COMPRESSOR DE IMAGENS ULTRARRÁPIDO
+    // GERADOR DE LINK CURTO ESTILO MERCADO LIVRE / SHOPEE & QR CODE ÚNICO
+    // ==========================================
+    function gerarLinkCurtoWhatsApp(peca) {
+        // Usa sempre a rota curta do servidor Render (/p/CODIGO) que gera o Card com Foto, Nome e Preço no WhatsApp!
+        const identificador = peca.id || peca._id || peca.qrToken;
+        return `${baseUrl}/p/${encodeURIComponent(identificador)}`;
+    }
+
+    function gerarLinkDiretoVitrine(peca) {
+        const identificador = peca.id || peca._id || peca.qrToken;
+        if (window.location.protocol === 'file:' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+            return `produto.html?id=${encodeURIComponent(identificador)}`;
+        }
+        const pathParts = window.location.pathname.split('/');
+        pathParts.pop();
+        return `${window.location.origin}${pathParts.join('/')}/produto.html?id=${encodeURIComponent(identificador)}`;
+    }
+
+    function renderizarQrCodePeca(peca) {
+        const qrContainer = document.getElementById('qrcodeContainer');
+        if (!qrContainer) return;
+        qrContainer.innerHTML = '';
+
+        // Link curto e único para o QR Code (funciona no App Android Flutter e na câmera normal)
+        const qrUrl = gerarLinkCurtoWhatsApp(peca);
+
+        if (typeof QRCode !== 'undefined') {
+            new QRCode(qrContainer, {
+                text: qrUrl,
+                width: 150,
+                height: 150,
+                colorDark: '#111111',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        document.getElementById('qrLabelNome').textContent = peca.nome || 'Peça';
+        document.getElementById('qrLabelCodigo').textContent = `Cód: #${peca.id || 'N/A'}`;
+        document.getElementById('qrLabelLocal').textContent = `Local: ${peca.localizacao || 'N/A'}`;
+
+        const btnAbrirPublico = document.getElementById('btnAbrirPaginaCliente');
+        if (btnAbrirPublico) {
+            btnAbrirPublico.href = gerarLinkDiretoVitrine(peca);
+        }
+    }
+
+    // Baixar etiqueta completa em PNG (com Nome, Código, Localização e QR Code)
+    async function baixarEtiquetaPng(peca) {
+        const qrImgOrCanvas = document.querySelector('#qrcodeContainer canvas') || document.querySelector('#qrcodeContainer img');
+        if (!qrImgOrCanvas) {
+            showToast('QR Code ainda não foi gerado.', 'warning');
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 420;
+        canvas.height = 520;
+        const ctx = canvas.getContext('2d');
+
+        // Fundo branco com borda
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        // Topo Preto e Amarelo
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(10, 10, canvas.width - 20, 65);
+        ctx.fillStyle = '#FFC300';
+        ctx.font = 'bold 22px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('CANADA AUTO PEÇAS', canvas.width / 2, 50);
+
+        // Desenha o QR Code centralizado
+        ctx.drawImage(qrImgOrCanvas, (canvas.width - 240) / 2, 95, 240, 240);
+
+        // Textos da etiqueta
+        ctx.fillStyle = '#111111';
+        ctx.font = 'bold 20px Arial';
+        const nomeTruncado = String(peca.nome || '').length > 28
+            ? String(peca.nome).substring(0, 28) + '...'
+            : String(peca.nome || '');
+        ctx.fillText(nomeTruncado, canvas.width / 2, 375);
+
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText(`CÓD: #${peca.id || 'N/A'}`, canvas.width / 2, 415);
+
+        ctx.fillStyle = '#444444';
+        ctx.font = '18px Arial';
+        ctx.fillText(`Marca: ${peca.marca || 'N/A'} | Local: ${peca.localizacao || 'N/A'}`, canvas.width / 2, 450);
+
+        ctx.fillStyle = '#777777';
+        ctx.font = '13px monospace';
+        ctx.fillText(peca.qrToken || `ID-${peca._id || peca.id}`, canvas.width / 2, 485);
+
+        const link = document.createElement('a');
+        link.download = `etiqueta-qrcode-peca-${peca.id || 'item'}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('Etiqueta QR Code baixada com sucesso!');
+    }
+
+    function imprimirEtiquetaQr(peca) {
+        const qrImgOrCanvas = document.querySelector('#qrcodeContainer canvas') || document.querySelector('#qrcodeContainer img');
+        if (!qrImgOrCanvas) return;
+
+        const dataUrl = qrImgOrCanvas.tagName.toLowerCase() === 'canvas'
+            ? qrImgOrCanvas.toDataURL('image/png')
+            : qrImgOrCanvas.src;
+
+        const printWin = window.open('', '_blank', 'width=450,height=600');
+        if (!printWin) {
+            showToast('Permita pop-ups para imprimir a etiqueta.', 'warning');
+            return;
+        }
+
+        printWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Etiqueta QR - #${peca.id}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; display: flex; justify-content: center; padding: 15px; margin: 0; }
+                    .label-box { border: 3px solid #000; width: 300px; text-align: center; border-radius: 8px; overflow: hidden; }
+                    .label-top { background: #000; color: #fff; font-weight: bold; padding: 10px; font-size: 16px; letter-spacing: 1px; }
+                    .label-qr { padding: 15px 0 5px 0; }
+                    .label-qr img { width: 180px; height: 180px; }
+                    .label-name { font-size: 16px; font-weight: bold; margin: 6px 10px; }
+                    .label-code { font-size: 20px; font-weight: 900; margin: 6px 0; background: #eee; padding: 5px; }
+                    .label-info { font-size: 13px; color: #333; margin: 6px 10px 12px 10px; }
+                    @media print { @page { margin: 5mm; } }
+                </style>
+            </head>
+            <body>
+                <div class="label-box">
+                    <div class="label-top">CANADA AUTO PEÇAS</div>
+                    <div class="label-qr"><img src="${dataUrl}" /></div>
+                    <div class="label-name">${peca.nome || ''}</div>
+                    <div class="label-code">CÓD: #${peca.id || ''}</div>
+                    <div class="label-info">Marca: ${peca.marca || 'N/A'} | Local: ${peca.localizacao || 'N/A'}</div>
+                </div>
+                <script>
+                    window.onload = function() { window.print(); setTimeout(() => window.close(), 500); };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWin.document.close();
+    }
+
+    function enviarPecaWhatsAppCliente(peca) {
+        const linkCurto = gerarLinkCurtoWhatsApp(peca);
+        const marcaTxt = peca.marca ? ` (${peca.marca.toUpperCase()})` : '';
+        const precoTxt = formatarMoeda(peca.preco || 0);
+
+        // Formato idêntico ao compartilhamento da Shopee:
+        // O WhatsApp puxa a 1ª foto da peça para montar o Card grande no topo,
+        // seguido da frase "Confira ... por R$ ... Encontre na Canada Auto Peças agora!" e o link curto no final!
+        const mensagem = `Confira ${peca.nome || 'Peça Automotiva'}${marcaTxt} - Cód. #${peca.id || ''} por ${precoTxt}. Encontre na Canada Auto Peças agora!\n${linkCurto}`;
+
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`, '_blank');
+    }
+
+    // ==========================================
+    // COMPRESSOR DE IMAGENS ULTRARRÁPIDO
     // ==========================================
     async function comprimirImagem(file, maxWidth = 1024, maxHeight = 1024, quality = 0.7) {
         return new Promise((resolve) => {
@@ -99,6 +328,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (event.key === 'Escape') {
             fecharPainel();
             fecharAddPainel();
+            if (resetDbModal) resetDbModal.style.display = 'none';
         }
     });
 
@@ -154,11 +384,21 @@ document.addEventListener('DOMContentLoaded', async function () {
         valorTotalElement.textContent = formatarMoeda(valorTotal);
     }
 
+    function obterPrimeiraFoto(peca) {
+        if (peca.imagensUrls && peca.imagensUrls.length > 0 && peca.imagensUrls[0]) {
+            return peca.imagensUrls[0];
+        }
+        if (peca.imagemUrl) {
+            return peca.imagemUrl;
+        }
+        return '';
+    }
+
     function renderizarTabela(pecasParaMostrar) {
         tableBody.innerHTML = '';
 
         if (pecasParaMostrar.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#888;">Nenhuma peça encontrada com esses filtros.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#888;">Nenhuma peça encontrada com esses filtros.</td></tr>`;
             atualizarDashboard([]);
             return;
         }
@@ -170,10 +410,24 @@ document.addEventListener('DOMContentLoaded', async function () {
                 ? `<span class="badge-estoque-baixo" title="Estoque crítico!"><i class="fa fa-triangle-exclamation"></i> Baixo</span>`
                 : '';
 
+            const primeiraFoto = obterPrimeiraFoto(peca);
+            const qtdFotos = (peca.imagensUrls && peca.imagensUrls.length) ? peca.imagensUrls.length : (peca.imagemUrl ? 1 : 0);
+            const badgeQtdFotos = qtdFotos > 1 ? `<span class="thumb-count-badge">+${qtdFotos - 1}</span>` : '';
+
+            const thumbHtml = primeiraFoto
+                ? `<div class="table-thumb-box nome-clicavel" title="Clique para ver as fotos e detalhes">
+                       <img src="${primeiraFoto}" alt="${peca.nome || 'Foto'}" class="table-thumb-img nome-clicavel" loading="lazy">
+                       ${badgeQtdFotos}
+                   </div>`
+                : `<div class="table-thumb-empty nome-clicavel" title="Sem foto cadastrada - Clique para adicionar">
+                       <i class="fa-regular fa-image nome-clicavel"></i>
+                   </div>`;
+
             htmlRows += `
                 <tr data-id="${peca._id}">
-                    <td>${peca.id || ''}</td>
-                    <td class="nome-clicavel" title="Clique para ver os detalhes">${peca.nome || ''}</td>
+                    <td class="td-foto">${thumbHtml}</td>
+                    <td><strong>#${peca.id || ''}</strong></td>
+                    <td class="nome-clicavel" title="Clique para ver detalhes, QR Code e compartilhar">${peca.nome || ''}</td>
                     <td>${peca.marca || ''}</td>
                     <td>
                         <div class="estoque-wrapper">
@@ -181,10 +435,15 @@ document.addEventListener('DOMContentLoaded', async function () {
                             ${alertaEstoque}
                         </div>
                     </td>
-                    <td>${formatarMoeda(peca.preco || 0)}</td>
+                    <td><strong>${formatarMoeda(peca.preco || 0)}</strong></td>
                     <td>${peca.localizacao || ''}</td>
                     <td class="actions">
-                        <button class="btn-action btn-delete" title="Excluir"><i class="fa fa-trash"></i></button>
+                        <div class="actions-row">
+                            <button class="btn-action btn-add-orc-quick" title="Adicionar esta peça ao Orçamento"><i class="fa-solid fa-file-invoice-dollar"></i></button>
+                            <button class="btn-action btn-qr-quick" title="Ver QR Code / Etiqueta"><i class="fa-solid fa-qrcode"></i></button>
+                            <button class="btn-action btn-share-quick" title="Compartilhar estilo Shopee no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
+                            <button class="btn-action btn-delete" title="Excluir"><i class="fa fa-trash"></i></button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -304,7 +563,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                         wrapper.appendChild(img);
                         wrapper.appendChild(btnRemover);
                         container.appendChild(wrapper);
-                    }
+                    };
                     reader.readAsDataURL(file);
                 });
             } else {
@@ -326,7 +585,85 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('btnCancelarNovaPeca').onclick = fecharAddPainel;
 
     // ==========================================
-    // SALVAR NOVA PEÇA (Com compressão de imagem)
+    // ABRIR DETALHES DA PEÇA + QR CODE + COMPARTILHAMENTO
+    // ==========================================
+    function abrirDetalhesPeca(pecaClicada) {
+        if (!pecaClicada) return;
+        idDaPecaAberta = pecaClicada._id;
+        document.getElementById('modalNome').textContent = pecaClicada.nome;
+
+        let fotosParaExibir = [];
+        if (pecaClicada.imagemUrl && (!pecaClicada.imagensUrls || pecaClicada.imagensUrls.length === 0)) fotosParaExibir.push(pecaClicada.imagemUrl);
+        if (pecaClicada.imagensUrls && pecaClicada.imagensUrls.length > 0) fotosParaExibir = pecaClicada.imagensUrls;
+
+        const modalImagens = document.getElementById('modalImagens');
+        modalImagens.innerHTML = '';
+
+        if (fotosParaExibir.length > 0) {
+            fotosParaExibir.forEach(url => {
+                const linkElement = document.createElement('a');
+                linkElement.href = url;
+                linkElement.target = "_blank";
+                linkElement.title = "Clique para expandir a imagem";
+
+                const imgElement = document.createElement('img');
+                imgElement.src = url;
+
+                linkElement.appendChild(imgElement);
+                modalImagens.appendChild(linkElement);
+            });
+        } else {
+            modalImagens.innerHTML = '<p style="color: #888; font-size: 0.9rem;">Nenhuma foto cadastrada.</p>';
+        }
+
+        document.getElementById('modalInfo').innerHTML = `
+            <p><strong>Código:</strong> <span>${pecaClicada.id}</span></p>
+            <p><strong>Marca:</strong> <span>${pecaClicada.marca || 'N/A'}</span></p>
+            <p><strong>Estoque:</strong> <span>${pecaClicada.estoque} un.</span></p>
+            <p><strong>Preço:</strong> <span>${formatarMoeda(pecaClicada.preco)}</span></p>
+            <p><strong>Localização:</strong> <span>${pecaClicada.localizacao || 'N/A'}</span></p>
+            <p><strong>ID QR Code:</strong> <span style="font-family:monospace; font-size:0.85rem;">${pecaClicada.qrToken || pecaClicada._id}</span></p>
+        `;
+
+        renderizarQrCodePeca(pecaClicada);
+
+        // Eventos dos botões de QR Code e Compartilhamento
+        document.getElementById('btnImprimirEtiqueta').onclick = () => imprimirEtiquetaQr(pecaClicada);
+        document.getElementById('btnBaixarQrCode').onclick = () => baixarEtiquetaPng(pecaClicada);
+        document.getElementById('btnEnviarWhatsCliente').onclick = () => enviarPecaWhatsAppCliente(pecaClicada);
+        document.getElementById('btnCopiarLinkProduto').onclick = () => {
+            const linkCliente = gerarLinkCurtoWhatsApp(pecaClicada);
+            navigator.clipboard.writeText(linkCliente);
+            showToast('Link curto do anúncio copiado! Cole no WhatsApp do cliente.');
+        };
+
+        // Botão Excluir Peça dentro do modal de visualização e edição
+        const btnExcluirModal = document.getElementById('btnExcluirPecaModal');
+        if (btnExcluirModal) {
+            btnExcluirModal.onclick = async () => {
+                if (confirm(`Tem certeza que deseja excluir a peça "${pecaClicada.nome}" (#${pecaClicada.id})?`)) {
+                    try {
+                        const response = await fetch(`${apiUrl}/${pecaClicada._id}`, { method: 'DELETE' });
+                        if (response.ok) {
+                            fecharPainel();
+                            await carregarPecas();
+                            showToast("Peça excluída do estoque com sucesso.", "warning");
+                        } else {
+                            showToast("Erro ao excluir peça.", "error");
+                        }
+                    } catch (error) {
+                        showToast("Erro de conexão ao excluir peça.", "error");
+                    }
+                }
+            };
+        }
+
+        modoVisualizacao();
+        modal.style.display = 'flex';
+    }
+
+    // ==========================================
+    // SALVAR NOVA PEÇA (Com compressão de imagem + abertura automática do QR Code gerado)
     // ==========================================
     document.getElementById('btnSalvarNovaPeca').onclick = async function () {
         const codigoInput = document.getElementById('addCodigo');
@@ -353,6 +690,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             return;
         }
 
+        const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const qrTokenUnico = `APC-${codigoValor}-${Date.now().toString(36).toUpperCase()}-${randomSuffix}`;
+
         const formData = new FormData();
         formData.append('id', codigoValor);
         formData.append('nome', nomeValor);
@@ -360,12 +700,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         formData.append('estoque', document.getElementById('addEstoque').value);
         formData.append('preco', precoValor || 0);
         formData.append('localizacao', document.getElementById('addLocalizacao').value);
+        formData.append('qrToken', qrTokenUnico);
 
         const fileInput = document.getElementById('addImagens');
         const btn = document.getElementById('btnSalvarNovaPeca');
 
         try {
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Compactando e Salvando...';
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Compactando e Gerando QR Code...';
             btn.disabled = true;
 
             // Compacta e anexa todas as imagens antes de enviar
@@ -376,16 +717,21 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             const response = await fetch(apiUrl, { method: 'POST', body: formData });
             if (response.ok) {
+                const pecaCriada = await response.json();
                 await carregarPecas();
                 fecharAddPainel();
-                showToast("Peça cadastrada com sucesso!", "success");
+                showToast("Peça cadastrada e QR Code único gerado com sucesso!", "success");
+
+                // Abre automaticamente a tela da peça recém-criada mostrando o QR Code pronto para impressão
+                const pecaCompleta = listaDePecas.find(p => p._id === pecaCriada._id) || pecaCriada;
+                abrirDetalhesPeca(pecaCompleta);
             } else {
                 showToast("Erro ao processar as fotos ou salvar a peça.", "error");
             }
         } catch (error) {
             showToast("Servidor indisponível. Verifique o backend.", "error");
         } finally {
-            btn.innerHTML = '<i class="fa fa-check"></i> Finalizar Cadastro';
+            btn.innerHTML = '<i class="fa fa-check"></i> Finalizar Cadastro & Gerar QR Code';
             btn.disabled = false;
         }
     };
@@ -395,48 +741,20 @@ document.addEventListener('DOMContentLoaded', async function () {
         const row = target.closest('tr');
         if (!row) return;
         const id = row.getAttribute('data-id');
+        const pecaClicada = listaDePecas.find(p => p._id === id);
 
-        if (target.classList.contains('nome-clicavel')) {
-            const pecaClicada = listaDePecas.find(p => p._id === id);
-            if (pecaClicada) {
-                idDaPecaAberta = id;
-                document.getElementById('modalNome').textContent = pecaClicada.nome;
+        if (target.classList.contains('nome-clicavel') || target.closest('.table-thumb-box') || target.closest('.table-thumb-empty') || target.closest('.btn-qr-quick')) {
+            if (pecaClicada) abrirDetalhesPeca(pecaClicada);
+            return;
+        }
 
-                let fotosParaExibir = [];
-                if (pecaClicada.imagemUrl && (!pecaClicada.imagensUrls || pecaClicada.imagensUrls.length === 0)) fotosParaExibir.push(pecaClicada.imagemUrl);
-                if (pecaClicada.imagensUrls && pecaClicada.imagensUrls.length > 0) fotosParaExibir = pecaClicada.imagensUrls;
+        if (target.closest('.btn-add-orc-quick')) {
+            if (pecaClicada) adicionarPecaEstoqueDiretoAoOrcamento(pecaClicada);
+            return;
+        }
 
-                const modalImagens = document.getElementById('modalImagens');
-                modalImagens.innerHTML = '';
-
-                if (fotosParaExibir.length > 0) {
-                    fotosParaExibir.forEach(url => {
-                        const linkElement = document.createElement('a');
-                        linkElement.href = url;
-                        linkElement.target = "_blank";
-                        linkElement.title = "Clique para expandir a imagem";
-
-                        const imgElement = document.createElement('img');
-                        imgElement.src = url;
-
-                        linkElement.appendChild(imgElement);
-                        modalImagens.appendChild(linkElement);
-                    });
-                } else {
-                    modalImagens.innerHTML = '<p style="color: #888; font-size: 0.9rem;">Nenhuma foto cadastrada.</p>';
-                }
-
-                document.getElementById('modalInfo').innerHTML = `
-                    <p><strong>Código:</strong> <span>${pecaClicada.id}</span></p>
-                    <p><strong>Marca:</strong> <span>${pecaClicada.marca || 'N/A'}</span></p>
-                    <p><strong>Estoque:</strong> <span>${pecaClicada.estoque} un.</span></p>
-                    <p><strong>Preço:</strong> <span>${formatarMoeda(pecaClicada.preco)}</span></p>
-                    <p><strong>Localização:</strong> <span>${pecaClicada.localizacao || 'N/A'}</span></p>
-                `;
-
-                modoVisualizacao();
-                modal.style.display = 'flex';
-            }
+        if (target.closest('.btn-share-quick')) {
+            if (pecaClicada) enviarPecaWhatsAppCliente(pecaClicada);
             return;
         }
 
@@ -455,6 +773,56 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
         }
     });
+
+    // ==========================================
+    // ZERAR BANCO DE DADOS (Para reenviar todo o estoque novo)
+    // ==========================================
+    const btnZerarBanco = document.getElementById('btnZerarBanco');
+    if (btnZerarBanco) {
+        btnZerarBanco.onclick = () => {
+            document.getElementById('inputConfirmarZerar').value = '';
+            resetDbModal.style.display = 'flex';
+        };
+    }
+
+    document.getElementById('fecharResetModal').onclick = () => resetDbModal.style.display = 'none';
+    document.getElementById('btnCancelarZerarBanco').onclick = () => resetDbModal.style.display = 'none';
+
+    document.getElementById('btnConfirmarZerarBanco').onclick = async function () {
+        const digitado = document.getElementById('inputConfirmarZerar').value.trim().toUpperCase();
+        if (digitado !== 'ZERAR') {
+            showToast('Digite a palavra ZERAR para confirmar a limpeza do banco.', 'warning');
+            return;
+        }
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Apagando todas as peças...';
+
+        try {
+            // Tenta a rota nova de limpeza em lote; se o Render ainda estiver com o deploy antigo, apaga uma por uma
+            let limpouEmLote = false;
+            try {
+                const respLote = await fetch(`${apiUrl}/limpar-tudo`, { method: 'DELETE' });
+                if (respLote.ok) limpouEmLote = true;
+            } catch (e) {}
+
+            if (!limpouEmLote) {
+                for (const peca of listaDePecas) {
+                    await fetch(`${apiUrl}/${peca._id}`, { method: 'DELETE' });
+                }
+            }
+
+            await carregarPecas();
+            resetDbModal.style.display = 'none';
+            showToast('Banco de dados zerado com sucesso! Pronto para cadastrar as peças novas.', 'success');
+        } catch (error) {
+            showToast('Erro ao limpar o banco de dados.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Apagar Todas as Peças Agora';
+        }
+    };
 
     function modoVisualizacao() {
         document.getElementById('painelVisualizacao').style.display = 'block';
@@ -580,10 +948,832 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     document.getElementById('fecharPainelTop').onclick = fecharPainel;
 
+    // ==========================================
+    // MÓDULO COMPLETO DE ORÇAMENTO (PEÇAS DO ESTOQUE + PEÇAS AVULSAS + SERVIÇOS)
+    // ==========================================
+    const orcamentoModal = document.getElementById('orcamentoModal');
+    let itensDoOrcamento = [];
+
+    function atualizarDatalistEstoqueOrcamento() {
+        const datalist = document.getElementById('orcEstoqueDatalist');
+        if (!datalist) return;
+        datalist.innerHTML = '';
+        listaDePecas.forEach(p => {
+            const opt = document.createElement('option');
+            const precoFmt = formatarMoeda(p.preco || 0);
+            opt.value = `#${p.id} - ${p.nome} (${p.marca || 'S/M'}) - ${precoFmt}`;
+            datalist.appendChild(opt);
+        });
+    }
+
+    function parseMonetario(val) {
+        if (typeof val === 'number') return val;
+        const limpo = String(val || '0')
+            .replace(/R\$\s?/gi, '')
+            .replace(/\./g, '')
+            .replace(',', '.')
+            .trim();
+        const num = parseFloat(limpo);
+        return isNaN(num) ? 0 : num;
+    }
+
+    function atualizarBadgeOrcamento() {
+        const badge = document.getElementById('badgeCountOrcamento');
+        if (!badge) return;
+        if (itensDoOrcamento.length > 0) {
+            badge.style.display = 'inline-block';
+            badge.textContent = itensDoOrcamento.length;
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function renderizarTabelaOrcamento() {
+        const tbody = document.getElementById('orcTabelaItensBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        atualizarBadgeOrcamento();
+
+        if (itensDoOrcamento.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#777; padding:18px;">Nenhum item adicionado ao orçamento ainda. Adicione peças do estoque ou peças avulsas acima.</td></tr>`;
+            document.getElementById('orcSubtotalBruto').textContent = 'R$ 0,00';
+            document.getElementById('orcTotalDescontos').textContent = 'R$ 0,00';
+            document.getElementById('orcValorTotalFinal').textContent = 'R$ 0,00';
+            return;
+        }
+
+        let somaBruto = 0;
+        let somaDesconto = 0;
+        let somaLiquido = 0;
+
+        itensDoOrcamento.forEach((item, idx) => {
+            const totalBrutoItem = item.qtd * item.precoUnit;
+            const totalLiquidoItem = Math.max(0, totalBrutoItem - item.desconto);
+
+            somaBruto += totalBrutoItem;
+            somaDesconto += item.desconto;
+            somaLiquido += totalLiquidoItem;
+
+            const tipoBadge = item.tipo === 'servico'
+                ? `<span style="background:#3498db; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700;">Serviço</span>`
+                : (item.origem === 'estoque'
+                    ? `<span style="background:#27ae60; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700;">Estoque</span>`
+                    : `<span style="background:#e67e22; color:#fff; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700;">Avulsa</span>`);
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${tipoBadge}</td>
+                <td><strong>${item.codigo || '-'}</strong></td>
+                <td>${item.descricao}</td>
+                <td>${item.qtd}</td>
+                <td>${formatarMoeda(item.precoUnit)}</td>
+                <td>${formatarMoeda(item.desconto)}</td>
+                <td><strong>${formatarMoeda(totalLiquidoItem)}</strong></td>
+                <td style="text-align:center;">
+                    <button type="button" class="btn-action btn-delete" data-idx="${idx}" title="Remover item"><i class="fa fa-trash"></i></button>
+                </td>
+            `;
+            tr.querySelector('.btn-delete').onclick = () => {
+                itensDoOrcamento.splice(idx, 1);
+                renderizarTabelaOrcamento();
+            };
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('orcSubtotalBruto').textContent = formatarMoeda(somaBruto);
+        document.getElementById('orcTotalDescontos').textContent = formatarMoeda(somaDesconto);
+        document.getElementById('orcValorTotalFinal').textContent = formatarMoeda(somaLiquido);
+    }
+
+    function abrirModalOrcamento() {
+        atualizarDatalistEstoqueOrcamento();
+        const numInput = document.getElementById('orcNumero');
+        if (numInput && !numInput.value) {
+            numInput.value = Math.floor(10000 + Math.random() * 90000).toString();
+        }
+        const valInput = document.getElementById('orcValidade');
+        if (valInput && !valInput.value) {
+            const d = new Date();
+            d.setDate(d.getDate() + 7);
+            valInput.value = d.toLocaleDateString('pt-BR');
+        }
+        renderizarTabelaOrcamento();
+        orcamentoModal.style.display = 'flex';
+    }
+
+    function adicionarPecaEstoqueDiretoAoOrcamento(peca) {
+        const precoNum = parseFloat(String(peca.preco || 0).replace(',', '.')) || 0;
+        const existente = itensDoOrcamento.find(i => i.origem === 'estoque' && String(i.codigo) === String(peca.id));
+        if (existente) {
+            existente.qtd += 1;
+        } else {
+            itensDoOrcamento.push({
+                tipo: 'produto',
+                origem: 'estoque',
+                codigo: peca.id || '-',
+                descricao: `${peca.nome || ''}${peca.marca ? ' - ' + peca.marca.toUpperCase() : ''}`,
+                qtd: 1,
+                precoUnit: precoNum,
+                desconto: 0
+            });
+        }
+        atualizarBadgeOrcamento();
+        showToast(`"${peca.nome}" adicionada ao Orçamento! Clique em "Gerar Orçamento" no topo.`, 'success');
+    }
+
+    const btnAbrirOrcamento = document.getElementById('btnAbrirOrcamento');
+    if (btnAbrirOrcamento) btnAbrirOrcamento.onclick = abrirModalOrcamento;
+
+    const fecharOrcamentoTop = document.getElementById('fecharOrcamentoTop');
+    if (fecharOrcamentoTop) fecharOrcamentoTop.onclick = () => orcamentoModal.style.display = 'none';
+
+    const btnFecharOrcamentoFooter = document.getElementById('btnFecharOrcamentoFooter');
+    if (btnFecharOrcamentoFooter) btnFecharOrcamentoFooter.onclick = () => orcamentoModal.style.display = 'none';
+
+    // 1. Incluir peça que está cadastrada no estoque
+    const btnAddPecaEstoqueOrc = document.getElementById('btnAddPecaEstoqueOrc');
+    if (btnAddPecaEstoqueOrc) {
+        btnAddPecaEstoqueOrc.onclick = () => {
+            const textoBusca = document.getElementById('orcBuscaEstoqueInput').value.trim();
+            if (!textoBusca) {
+                showToast('Selecione ou digite uma peça do estoque.', 'warning');
+                return;
+            }
+
+            // Extrai código se veio no formato "#19 - nome..." ou procura por código/nome
+            let pecaAchada = null;
+            if (textoBusca.startsWith('#')) {
+                const codExtraido = textoBusca.split(' - ')[0].replace('#', '').trim();
+                pecaAchada = listaDePecas.find(p => String(p.id).trim() === codExtraido);
+            }
+            if (!pecaAchada) {
+                const termoLower = textoBusca.toLowerCase();
+                pecaAchada = listaDePecas.find(p =>
+                    String(p.id || '').toLowerCase() === termoLower ||
+                    String(p.nome || '').toLowerCase().includes(termoLower)
+                );
+            }
+
+            if (!pecaAchada) {
+                showToast('Peça não encontrada no estoque. Use a opção abaixo para adicionar peça avulsa!', 'warning');
+                return;
+            }
+
+            const qtd = Math.max(1, parseInt(document.getElementById('orcEstoqueQtd').value) || 1);
+            const desc = parseMonetario(document.getElementById('orcEstoqueDesc').value);
+            const precoUnit = parseFloat(String(pecaAchada.preco || 0).replace(',', '.')) || 0;
+
+            itensDoOrcamento.push({
+                tipo: 'produto',
+                origem: 'estoque',
+                codigo: pecaAchada.id || '-',
+                descricao: `${pecaAchada.nome || ''}${pecaAchada.marca ? ' (' + pecaAchada.marca.toUpperCase() + ')' : ''}`,
+                qtd,
+                precoUnit,
+                desconto: desc
+            });
+
+            document.getElementById('orcBuscaEstoqueInput').value = '';
+            document.getElementById('orcEstoqueQtd').value = '1';
+            document.getElementById('orcEstoqueDesc').value = '0,00';
+            renderizarTabelaOrcamento();
+            showToast('Peça do estoque incluída no orçamento!');
+        };
+    }
+
+    // 2. Incluir peça avulsa (que NÃO tem no estoque) ou Serviço
+    const btnAddPecaAvulsaOrc = document.getElementById('btnAddPecaAvulsaOrc');
+    if (btnAddPecaAvulsaOrc) {
+        btnAddPecaAvulsaOrc.onclick = () => {
+            const tipo = document.getElementById('orcAvulsoTipo').value;
+            const codigo = document.getElementById('orcAvulsoCodigo').value.trim() || 'AVULSO';
+            const nome = document.getElementById('orcAvulsoNome').value.trim();
+            const qtd = Math.max(1, parseFloat(document.getElementById('orcAvulsoQtd').value) || 1);
+            const precoUnit = parseMonetario(document.getElementById('orcAvulsoPreco').value);
+            const desconto = parseMonetario(document.getElementById('orcAvulsoDesc').value);
+
+            if (!nome) {
+                showToast('Digite a descrição da peça avulsa ou serviço.', 'warning');
+                return;
+            }
+
+            itensDoOrcamento.push({
+                tipo,
+                origem: 'avulso',
+                codigo,
+                descricao: nome.toUpperCase(),
+                qtd,
+                precoUnit,
+                desconto
+            });
+
+            document.getElementById('orcAvulsoCodigo').value = '';
+            document.getElementById('orcAvulsoNome').value = '';
+            document.getElementById('orcAvulsoQtd').value = '1';
+            document.getElementById('orcAvulsoPreco').value = '';
+            document.getElementById('orcAvulsoDesc').value = '0,00';
+            renderizarTabelaOrcamento();
+            showToast(tipo === 'servico' ? 'Serviço adicionado ao orçamento!' : 'Peça avulsa adicionada ao orçamento!');
+        };
+    }
+
+    const btnLimparItensOrc = document.getElementById('btnLimparItensOrc');
+    if (btnLimparItensOrc) {
+        btnLimparItensOrc.onclick = () => {
+            if (itensDoOrcamento.length > 0 && confirm('Deseja remover todos os itens deste orçamento?')) {
+                itensDoOrcamento = [];
+                renderizarTabelaOrcamento();
+            }
+        };
+    }
+
+    // 3. Gerar e Baixar Arquivo .PDF Direto (com a Logo do site e Layout igual à Folha da Foto)
+    async function carregarLogoBase64() {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = function () {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/jpeg', 0.9));
+                } catch (e) {
+                    resolve(null);
+                }
+            };
+            img.onerror = () => resolve(null);
+            img.src = 'images/favicon.jpg';
+        });
+    }
+
+    const btnGerarPdfDireto = document.getElementById('btnGerarPdfDireto');
+    if (btnGerarPdfDireto) {
+        btnGerarPdfDireto.onclick = async () => {
+            if (itensDoOrcamento.length === 0) {
+                showToast('Adicione pelo menos 1 item ao orçamento antes de gerar o PDF.', 'warning');
+                return;
+            }
+
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                showToast('Biblioteca de PDF ainda carregando, tente novamente.', 'warning');
+                return;
+            }
+
+            const btnOriginalHtml = btnGerarPdfDireto.innerHTML;
+            btnGerarPdfDireto.disabled = true;
+            btnGerarPdfDireto.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Gerando Arquivo PDF...';
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+                const agora = new Date();
+                const dataEmissao = agora.toLocaleDateString('pt-BR');
+                const horaEmissao = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                const d = {
+                    numero: document.getElementById('orcNumero').value || '0001',
+                    os: document.getElementById('orcOS').value || '-',
+                    vendedor: document.getElementById('orcVendedor').value || 'ADMIN',
+                    validade: document.getElementById('orcValidade').value || dataEmissao,
+                    clienteNome: document.getElementById('orcClienteNome').value || 'CONSUMIDOR',
+                    clienteDoc: document.getElementById('orcClienteDoc').value || '-',
+                    clienteFone: document.getElementById('orcClienteFone').value || '-',
+                    clienteEnd: document.getElementById('orcClienteEndereco').value || '-',
+                    clienteCep: document.getElementById('orcClienteCep').value || '-',
+                    veiculoMod: document.getElementById('orcVeiculoModelo').value || '-',
+                    veiculoPlaca: document.getElementById('orcVeiculoPlaca').value || '-',
+                    veiculoAno: document.getElementById('orcVeiculoAno').value || '-',
+                    veiculoKm: document.getElementById('orcVeiculoKm').value || '-',
+                    veiculoComb: document.getElementById('orcVeiculoCombustivel').value || '-',
+                    veiculoChassi: document.getElementById('orcVeiculoChassi').value || '-'
+                };
+
+                const formatNum = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // 1. Logo e Cabeçalho da Loja
+                const logoBase64 = await carregarLogoBase64();
+                let startTextX = 12;
+                if (logoBase64) {
+                    doc.addImage(logoBase64, 'JPEG', 12, 10, 20, 20);
+                    startTextX = 35;
+                }
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text('CANADA AUTO PEÇAS', startTextX, 16);
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.text('Sistema de Controle de Estoque e Orçamentos', startTextX, 21);
+                doc.text('Peças Novas e Usadas com Procedência e Garantia', startTextX, 26);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text(`Orçamento Nº: ${d.numero}`, 198, 16, { align: 'right' });
+
+                doc.setLineWidth(0.5);
+                doc.line(12, 33, 198, 33);
+
+                // 2. Bloco Vendedor / Emissão / OS
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Vendedor:', 12, 38);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.vendedor), 32, 38);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('OS:', 130, 38);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.os), 148, 38);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Data Emissão:', 12, 43);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`${dataEmissao}   Hora: ${horaEmissao}   Validade: ${d.validade}`, 36, 43);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Situação:', 130, 43);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Aberto', 148, 43);
+
+                doc.setLineWidth(0.2);
+                doc.line(12, 46, 198, 46);
+
+                // 3. Bloco Cliente
+                doc.setFont('helvetica', 'bold');
+                doc.text('Cliente:', 12, 51);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.clienteNome), 32, 51);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('CNPJ/CPF:', 130, 51);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.clienteDoc), 150, 51);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Endereço:', 12, 56);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.clienteEnd), 32, 56);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('CEP:', 130, 56);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.clienteCep), 150, 56);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Fone/Celular:', 12, 61);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.clienteFone), 35, 61);
+
+                doc.line(12, 64, 198, 64);
+
+                // 4. Bloco Veículo
+                doc.setFont('helvetica', 'bold');
+                doc.text('Modelo:', 12, 69);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.veiculoMod), 32, 69);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Chassi:', 130, 69);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.veiculoChassi), 150, 69);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Placa:', 12, 74);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.veiculoPlaca), 32, 74);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Combustível:', 130, 74);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.veiculoComb), 153, 74);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Ano/Modelo:', 12, 79);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.veiculoAno), 34, 79);
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Km:', 130, 79);
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(d.veiculoKm), 150, 79);
+
+                doc.setLineWidth(0.4);
+                doc.line(12, 82, 198, 82);
+
+                let currentY = 88;
+                const produtos = itensDoOrcamento.filter(i => i.tipo !== 'servico');
+                const servicos = itensDoOrcamento.filter(i => i.tipo === 'servico');
+
+                let totalProdutos = 0;
+                let totalServicos = 0;
+                let totalDescontos = 0;
+
+                // 5. Tabela de Produtos
+                if (produtos.length > 0) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text('Produtos', 105, currentY, { align: 'center' });
+                    currentY += 3;
+
+                    const bodyProdutos = produtos.map(p => {
+                        const bruto = p.qtd * p.precoUnit;
+                        const liq = Math.max(0, bruto - p.desconto);
+                        totalProdutos += liq;
+                        totalDescontos += p.desconto;
+                        return [
+                            String(p.codigo || '-'),
+                            String(p.descricao || ''),
+                            Number(p.qtd).toLocaleString('pt-BR', { minimumFractionDigits: 3 }),
+                            formatNum(p.precoUnit),
+                            formatNum(p.desconto),
+                            formatNum(bruto),
+                            formatNum(liq)
+                        ];
+                    });
+
+                    doc.autoTable({
+                        startY: currentY,
+                        margin: { left: 12, right: 12 },
+                        head: [['Código', 'Descrição', 'Qtdade', 'Vlr. Unit.', 'Desc.', 'Total Bruto', 'Valor Total']],
+                        body: bodyProdutos,
+                        theme: 'grid',
+                        styles: { fontSize: 8.5, cellPadding: 2, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.2 },
+                        headStyles: { fillColor: [235, 235, 235], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+                        columnStyles: {
+                            0: { cellWidth: 22 },
+                            1: { cellWidth: 'auto' },
+                            2: { cellWidth: 18, halign: 'right' },
+                            3: { cellWidth: 22, halign: 'right' },
+                            4: { cellWidth: 18, halign: 'right' },
+                            5: { cellWidth: 23, halign: 'right' },
+                            6: { cellWidth: 23, halign: 'right', fontStyle: 'bold' }
+                        }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 8;
+                }
+
+                // 6. Tabela de Serviços (se houver)
+                if (servicos.length > 0) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text('Serviços', 105, currentY, { align: 'center' });
+                    currentY += 3;
+
+                    const bodyServicos = servicos.map(s => {
+                        const bruto = s.qtd * s.precoUnit;
+                        const liq = Math.max(0, bruto - s.desconto);
+                        totalServicos += liq;
+                        totalDescontos += s.desconto;
+                        return [
+                            String(s.codigo || '-'),
+                            String(s.descricao || ''),
+                            formatNum(s.qtd),
+                            formatNum(s.precoUnit),
+                            formatNum(liq)
+                        ];
+                    });
+
+                    doc.autoTable({
+                        startY: currentY,
+                        margin: { left: 12, right: 12 },
+                        head: [['Código', 'Descrição dos serviços', 'Tempo de Serviço', 'Valor Hora', 'Valor Total']],
+                        body: bodyServicos,
+                        theme: 'grid',
+                        styles: { fontSize: 8.5, cellPadding: 2, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.2 },
+                        headStyles: { fillColor: [235, 235, 235], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+                        columnStyles: {
+                            0: { cellWidth: 22 },
+                            1: { cellWidth: 'auto' },
+                            2: { cellWidth: 28, halign: 'right' },
+                            3: { cellWidth: 25, halign: 'right' },
+                            4: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
+                        }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 8;
+                }
+
+                // 7. Caixa de Totais
+                const totalGeral = totalProdutos + totalServicos;
+                if (currentY > 255) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+
+                doc.setFillColor(248, 248, 248);
+                doc.setDrawColor(0, 0, 0);
+                doc.setLineWidth(0.4);
+                doc.rect(12, currentY, 186, 12, 'FD');
+
+                doc.setFontSize(9.5);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Total Produtos: R$ ${formatNum(totalProdutos)}`, 16, currentY + 7.5);
+                if (servicos.length > 0) {
+                    doc.text(`Total Serviços: R$ ${formatNum(totalServicos)}`, 72, currentY + 7.5);
+                }
+                doc.text(`Descontos: R$ ${formatNum(totalDescontos)}`, 122, currentY + 7.5);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text(`VALOR TOTAL: R$ ${formatNum(totalGeral)}`, 194, currentY + 7.5, { align: 'right' });
+
+                // 8. Assinaturas
+                currentY += 32;
+                if (currentY < 280) {
+                    doc.setLineWidth(0.3);
+                    doc.line(25, currentY, 95, currentY);
+                    doc.line(115, currentY, 185, currentY);
+                    doc.setFontSize(8.5);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text('CANADA AUTO PEÇAS', 60, currentY + 4, { align: 'center' });
+                    doc.text(`Cliente: ${d.clienteNome}`, 150, currentY + 4, { align: 'center' });
+                }
+
+                const nomeClienteLimpo = String(d.clienteNome).replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+                const nomeArquivo = `Orcamento_${d.numero}_${nomeClienteLimpo}.pdf`;
+
+                // Salva (baixa) o arquivo .PDF diretamente no computador ou celular!
+                doc.save(nomeArquivo);
+
+                // Se estiver no celular com suporte a Web Share de arquivos, também oferece enviar o PDF direto no WhatsApp
+                try {
+                    const pdfBlob = doc.output('blob');
+                    const pdfFile = new File([pdfBlob], nomeArquivo, { type: 'application/pdf' });
+                    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                        await navigator.share({
+                            files: [pdfFile],
+                            title: `Orçamento Nº ${d.numero} - Canada Auto Peças`,
+                            text: `Segue em anexo o Orçamento Nº ${d.numero} da Canada Auto Peças.`
+                        });
+                    }
+                } catch (_) {}
+
+                showToast(`PDF "${nomeArquivo}" gerado e baixado com sucesso! Agora é só anexar no WhatsApp do cliente.`, 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Erro ao gerar o arquivo PDF.', 'error');
+            } finally {
+                btnGerarPdfDireto.disabled = false;
+                btnGerarPdfDireto.innerHTML = btnOriginalHtml;
+            }
+        };
+    }
+
+    // 4. Imprimir Folha de Orçamento A4 idêntica à foto enviada (com a logo images/favicon.jpg do site)
+    const btnImprimirOrcamento = document.getElementById('btnImprimirOrcamento');
+    if (btnImprimirOrcamento) {
+        btnImprimirOrcamento.onclick = () => {
+            if (itensDoOrcamento.length === 0) {
+                showToast('Adicione pelo menos 1 produto ou serviço para imprimir o orçamento.', 'warning');
+                return;
+            }
+
+            const agora = new Date();
+            const dataEmissao = agora.toLocaleDateString('pt-BR');
+            const horaEmissao = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            const d = {
+                numero: document.getElementById('orcNumero').value || '0001',
+                os: document.getElementById('orcOS').value || '-',
+                vendedor: document.getElementById('orcVendedor').value || 'ADMIN',
+                validade: document.getElementById('orcValidade').value || dataEmissao,
+                clienteNome: document.getElementById('orcClienteNome').value || 'CONSUMIDOR',
+                clienteDoc: document.getElementById('orcClienteDoc').value || '-',
+                clienteFone: document.getElementById('orcClienteFone').value || '-',
+                clienteEnd: document.getElementById('orcClienteEndereco').value || '-',
+                clienteCep: document.getElementById('orcClienteCep').value || '-',
+                veiculoMod: document.getElementById('orcVeiculoModelo').value || '-',
+                veiculoPlaca: document.getElementById('orcVeiculoPlaca').value || '-',
+                veiculoAno: document.getElementById('orcVeiculoAno').value || '-',
+                veiculoKm: document.getElementById('orcVeiculoKm').value || '-',
+                veiculoComb: document.getElementById('orcVeiculoCombustivel').value || '-',
+                veiculoChassi: document.getElementById('orcVeiculoChassi').value || '-'
+            };
+
+            const produtos = itensDoOrcamento.filter(i => i.tipo !== 'servico');
+            const servicos = itensDoOrcamento.filter(i => i.tipo === 'servico');
+
+            const formatNum = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            let totalProdutos = 0;
+            let totalServicos = 0;
+            let totalDescontos = 0;
+
+            const linhasProdutosHtml = produtos.map(p => {
+                const bruto = p.qtd * p.precoUnit;
+                const liq = Math.max(0, bruto - p.desconto);
+                totalProdutos += liq;
+                totalDescontos += p.desconto;
+                return `
+                    <tr>
+                        <td>${p.codigo}</td>
+                        <td>${p.descricao}</td>
+                        <td class="num">${Number(p.qtd).toLocaleString('pt-BR', { minimumFractionDigits: 3 })}</td>
+                        <td class="num">${formatNum(p.precoUnit)}</td>
+                        <td class="num">${formatNum(p.desconto)}</td>
+                        <td class="num">${formatNum(bruto)}</td>
+                        <td class="num">${formatNum(liq)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const linhasServicosHtml = servicos.map(s => {
+                const bruto = s.qtd * s.precoUnit;
+                const liq = Math.max(0, bruto - s.desconto);
+                totalServicos += liq;
+                totalDescontos += s.desconto;
+                return `
+                    <tr>
+                        <td>${s.codigo}</td>
+                        <td>${s.descricao}</td>
+                        <td class="num">${formatNum(s.qtd)}</td>
+                        <td class="num">${formatNum(s.precoUnit)}</td>
+                        <td class="num">${formatNum(liq)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const totalGeral = totalProdutos + totalServicos;
+            const logoUrl = new URL('images/favicon.jpg', window.location.href).href;
+
+            const printWin = window.open('', '_blank', 'width=950,height=850');
+            if (!printWin) {
+                showToast('Permita pop-ups no navegador para abrir a folha de impressão.', 'warning');
+                return;
+            }
+
+            printWin.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Orçamento Nº ${d.numero} - Canada Auto Peças</title>
+    <style>
+        @page { size: A4; margin: 10mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #000; }
+        body { padding: 10px; font-size: 11px; line-height: 1.35; background: #fff; }
+        .header-top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #000; padding-bottom: 8px; margin-bottom: 6px; }
+        .company-box { display: flex; gap: 12px; align-items: center; }
+        .company-logo { width: 68px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid #000; }
+        .company-info h1 { font-size: 16px; font-weight: 900; text-transform: uppercase; margin-bottom: 2px; }
+        .company-info p { font-size: 10.5px; }
+        .orc-number-box { text-align: right; }
+        .orc-number-box h2 { font-size: 18px; font-weight: 900; }
+        .meta-block { border-bottom: 1px solid #000; padding: 5px 0; display: grid; grid-template-columns: 1.6fr 1fr; gap: 6px 20px; font-size: 11px; }
+        .meta-row { display: flex; gap: 6px; }
+        .meta-label { font-weight: bold; min-width: 85px; }
+        .section-title { text-align: center; font-size: 15px; font-weight: bold; margin: 12px 0 6px 0; }
+        table.sheet-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        table.sheet-table th, table.sheet-table td { border: 1px solid #000; padding: 4px 6px; font-size: 10.5px; }
+        table.sheet-table th { background: #f0f0f0; font-weight: bold; text-align: center; }
+        table.sheet-table td.num { text-align: right; white-space: nowrap; }
+        .totals-box { margin-top: 14px; border: 1.5px solid #000; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; background: #fafafa; font-size: 12px; }
+        .totals-box .grand-total { font-size: 15px; font-weight: 900; }
+        .signatures { margin-top: 45px; display: flex; justify-content: space-around; text-align: center; }
+        .sig-line { width: 240px; border-top: 1px solid #000; padding-top: 4px; font-size: 10.5px; }
+        .no-print-bar { margin-bottom: 15px; padding: 10px; background: #1a1a1a; color: #fff; display: flex; justify-content: space-between; align-items: center; border-radius: 6px; }
+        .no-print-bar button { background: #FFC300; color: #000; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        @media print { .no-print-bar { display: none; } body { padding: 0; } }
+    </style>
+</head>
+<body>
+    <div class="no-print-bar">
+        <span><strong>Visualização de Impressão</strong> — Folha de Orçamento Canada Auto Peças</span>
+        <button onclick="window.print()">🖨️ Imprimir / Salvar em PDF</button>
+    </div>
+
+    <div class="header-top">
+        <div class="company-box">
+            <img src="${logoUrl}" alt="Logo Canada Auto Peças" class="company-logo">
+            <div class="company-info">
+                <h1>CANADA AUTO PEÇAS</h1>
+                <p><strong>Sistema de Controle de Estoque e Orçamentos</strong></p>
+                <p>Peças Novas e Usadas com Procedência e Garantia</p>
+            </div>
+        </div>
+        <div class="orc-number-box">
+            <h2>Orçamento Nº: ${d.numero}</h2>
+        </div>
+    </div>
+
+    <div class="meta-block">
+        <div class="meta-row"><span class="meta-label">Vendedor:</span> <span>${d.vendedor}</span></div>
+        <div class="meta-row"><span class="meta-label">OS:</span> <span>${d.os}</span></div>
+        <div class="meta-row"><span class="meta-label">Data Emissão:</span> <span>${dataEmissao} &nbsp;&nbsp; <strong>Hora:</strong> ${horaEmissao} &nbsp;&nbsp; <strong>Data Validade:</strong> ${d.validade}</span></div>
+        <div class="meta-row"><span class="meta-label">Situação:</span> <span>Aberto</span></div>
+    </div>
+
+    <div class="meta-block">
+        <div class="meta-row"><span class="meta-label">Cliente:</span> <span>${d.clienteNome}</span></div>
+        <div class="meta-row"><span class="meta-label">CNPJ/CPF:</span> <span>${d.clienteDoc}</span></div>
+        <div class="meta-row"><span class="meta-label">Endereço:</span> <span>${d.clienteEnd}</span></div>
+        <div class="meta-row"><span class="meta-label">CEP:</span> <span>${d.clienteCep}</span></div>
+        <div class="meta-row"><span class="meta-label">Celular/Fone:</span> <span>${d.clienteFone}</span></div>
+        <div class="meta-row"></div>
+    </div>
+
+    <div class="meta-block">
+        <div class="meta-row"><span class="meta-label">Modelo:</span> <span>${d.veiculoMod}</span></div>
+        <div class="meta-row"><span class="meta-label">Chassi:</span> <span>${d.veiculoChassi}</span></div>
+        <div class="meta-row"><span class="meta-label">Placa:</span> <span>${d.veiculoPlaca}</span></div>
+        <div class="meta-row"><span class="meta-label">Combustível:</span> <span>${d.veiculoComb}</span></div>
+        <div class="meta-row"><span class="meta-label">Ano / Modelo:</span> <span>${d.veiculoAno}</span></div>
+        <div class="meta-row"><span class="meta-label">Km:</span> <span>${d.veiculoKm}</span></div>
+    </div>
+
+    ${produtos.length > 0 ? `
+    <div class="section-title">Produtos</div>
+    <table class="sheet-table">
+        <thead>
+            <tr>
+                <th style="width: 75px;">Código</th>
+                <th>Descrição</th>
+                <th style="width: 65px;">Qtdade</th>
+                <th style="width: 80px;">Vlr. Unit.</th>
+                <th style="width: 65px;">Desc.</th>
+                <th style="width: 85px;">Total Bruto</th>
+                <th style="width: 85px;">Valor Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${linhasProdutosHtml}
+        </tbody>
+    </table>
+    ` : ''}
+
+    ${servicos.length > 0 ? `
+    <div class="section-title">Serviços</div>
+    <table class="sheet-table">
+        <thead>
+            <tr>
+                <th style="width: 75px;">Código</th>
+                <th>Descrição dos serviços</th>
+                <th style="width: 110px;">Tempo de Serviço</th>
+                <th style="width: 90px;">Valor Hora</th>
+                <th style="width: 90px;">Valor Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${linhasServicosHtml}
+        </tbody>
+    </table>
+    ` : ''}
+
+    <div class="totals-box">
+        <div>Total Produtos: <strong>R$ ${formatNum(totalProdutos)}</strong></div>
+        ${servicos.length > 0 ? `<div>Total Serviços: <strong>R$ ${formatNum(totalServicos)}</strong></div>` : ''}
+        <div>Descontos: <strong>R$ ${formatNum(totalDescontos)}</strong></div>
+        <div class="grand-total">VALOR TOTAL: R$ ${formatNum(totalGeral)}</div>
+    </div>
+
+    <div class="signatures">
+        <div class="sig-line">CANADA AUTO PEÇAS</div>
+        <div class="sig-line">Assinatura do Cliente (${d.clienteNome})</div>
+    </div>
+
+    <script>
+        window.onload = function() { setTimeout(() => window.print(), 350); };
+    <\/script>
+</body>
+</html>`);
+            printWin.document.close();
+        };
+    }
+
     window.onclick = function (event) {
         if (event.target === modal) fecharPainel();
         if (event.target === addModal) fecharAddPainel();
+        if (event.target === resetDbModal) resetDbModal.style.display = 'none';
+        if (event.target === apkDownloadModal) apkDownloadModal.style.display = 'none';
+        if (event.target === orcamentoModal) orcamentoModal.style.display = 'none';
+    };
+
+    await carregarPecas();
+
+    // Se a URL tiver ?novo=1 (vindo do botão Cadastrar Peça com Fotos do App Android), abre direto o modal de cadastro!
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('novo') === '1') {
+        abrirModalAdicionar();
     }
 
-    carregarPecas();
+    // Se a URL tiver ?peca=ID ou ?qr=ID, já abre direto a peça correspondente!
+    const openId = urlParams.get('peca') || urlParams.get('id') || urlParams.get('qr');
+    if (openId && listaDePecas.length > 0) {
+        const encontrada = listaDePecas.find(p =>
+            String(p._id) === String(openId) ||
+            String(p.id) === String(openId) ||
+            String(p.qrToken) === String(openId)
+        );
+        if (encontrada) {
+            forcarMostrarTodos = true;
+            aplicarFiltros();
+            abrirDetalhesPeca(encontrada);
+        }
+    }
 });

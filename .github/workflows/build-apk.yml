@@ -1,0 +1,99 @@
+name: Gerar APK Android (Flutter Scanner QR)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app_scanner_autopecas/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 17 para Android
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Gerar estrutura Android, injetar permissões de Câmera/Galeria e compilar APK
+        working-directory: ./app_scanner_autopecas
+        run: |
+          set -o pipefail
+          rm -rf android .dart_tool pubspec.lock .flutter-plugins .flutter-plugins-dependencies build
+          flutter create --platforms=android --org com.canadaautopecas .
+
+          # Desativa o lintVitalAnalyzeRelease no Gradle para evitar o bug JavaDocParser do Android Lint no image_picker_android
+          if [ -f "android/app/build.gradle.kts" ]; then
+            sed -i 's|android {|android {\n    lint {\n        checkReleaseBuilds = false\n        abortOnError = false\n    }|' android/app/build.gradle.kts
+          fi
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's|android {|android {\n    lintOptions {\n        checkReleaseBuilds false\n        abortOnError false\n    }|' android/app/build.gradle
+          fi
+
+          # Desativa também nos subprojetos (plugins como image_picker_android) via init.gradle
+          cat << 'EOF' > android/init.gradle
+          allprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty("android")) {
+                      project.android {
+                          lintOptions {
+                              checkReleaseBuilds false
+                              abortOnError false
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Injeta as permissões CAMERA, INTERNET e Galeria no AndroidManifest.xml
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's|android:label="app_scanner_autopecas"|android:label="Canada Auto Peças QR"|g' "$MANIFEST"
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>\n    <application|' "$MANIFEST"
+          sed -i 's|</application>|    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode" />\n    </application>|' "$MANIFEST"
+
+          # Desativa lintVital nas tasks do Gradle via gradle.properties
+          echo "android.experimental.lint.vital=false" >> android/gradle.properties
+
+          flutter pub get
+          if ! flutter build apk --release --no-shrink > build_output.log 2>&1; then
+            cat build_output.log
+            ERR_MSG=$(grep -E "(Error:|FAILURE:|Exception:|What went wrong|^e: )" build_output.log | head -n 15 | tr '\n' ' ')
+            echo "::error title=FlutterBuildError::$ERR_MSG"
+            LAST_LINES=$(tail -n 25 build_output.log | tr '\n' ' ')
+            echo "::error title=FlutterBuildTail::$LAST_LINES"
+            exit 1
+          fi
+
+      - name: Salvar CanadaAutoPecas.apk direto na raiz do site para Download 1-Clique (Sem 404 e sem .zip)
+        run: |
+          cp app_scanner_autopecas/build/app/outputs/flutter-apk/app-release.apk ./CanadaAutoPecas.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CanadaAutoPecas.apk
+          if ! git diff --staged --quiet; then
+            git commit -m "Atualiza CanadaAutoPecas.apk com Galeria e Camera nativas [skip ci]"
+            git push origin main
+          fi
+
+      - name: Disponibilizar APK também nos Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Canada-Auto-Pecas-Scanner-APK
+          path: ./CanadaAutoPecas.apk

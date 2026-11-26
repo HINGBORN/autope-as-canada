@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anúncio Oficial - Canada Auto Peças</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+    <style>
+        :root {
+            --ml-yellow: #FFE600;
+            --ml-dark: #1a1a1a;
+            --ml-blue: #3483FA;
+            --ml-green: #00A650;
+            --shopee-orange: #EE4D2D;
+            --bg-gray: #EDEDED;
+            --text-dark: #333333;
+            --text-muted: #666666;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-gray);
+            color: var(--text-dark);
+            padding-bottom: 85px; /* Espaço para barra fixa no celular */
+        }
+
+        /* TOPBAR ESTILO MERCADO LIVRE / E-COMMERCE */
+        .ml-header {
+            background-color: var(--ml-yellow);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        .ml-header-inner {
+            max-width: 1180px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .ml-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #111;
+        }
+
+        .ml-brand img {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #111;
+        }
+
+        .ml-brand-text h1 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #111;
+        }
+
+        .ml-brand-text span {
+            font-size: 0.75rem;
+            color: #333;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ml-brand-text span i {
+            color: var(--ml-blue);
+        }
+
+        .ml-header-badge {
+            background: #111;
+            color: var(--ml-yellow);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* BREADCRUMB */
+        .ml-breadcrumb {
+            max-width: 1180px;
+            margin: 14px auto;
+            padding: 0 16px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .ml-breadcrumb span.active {
+            color: #111;
+            font-weight: 600;
+        }
+
+        /* CONTAINER PRINCIPAL ESTILO MERCADO LIVRE */
+        .ml-container {
+            max-width: 1180px;
+            margin: 0 auto 24px auto;
+            padding: 0 12px;
+        }
+
+        .ml-card {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .ml-grid {
+            display: grid;
+            grid-template-columns: 70px 1fr 370px;
+            gap: 24px;
+            padding: 24px;
+        }
+
+        @media (max-width: 960px) {
+            .ml-grid {
+                grid-template-columns: 1fr;
+                padding: 16px;
+                gap: 16px;
+            }
+            .ml-thumbs-vertical {
+                display: none !important;
+            }
+        }
+
+        /* COLUNA 1: MINIATURAS VERTICAIS (DESKTOP) */
+        .ml-thumbs-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .ml-thumb-item {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            border: 2px solid #e0e0e0;
+            overflow: hidden;
+            cursor: pointer;
+            padding: 2px;
+            transition: all 0.15s ease;
+        }
+
+        .ml-thumb-item.active,
+        .ml-thumb-item:hover {
+            border-color: var(--ml-blue);
+        }
+
+        .ml-thumb-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        /* COLUNA 2: FOTO PRINCIPAL + GALERIA MOBILE */
+        .ml-gallery-main {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .ml-photo-box {
+            position: relative;
+            width: 100%;
+            height: 440px;
+            background: #fafafa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid #f0f0f0;
+        }
+
+        @media (max-width: 600px) {
+            .ml-photo-box {
+                height: 330px;
+            }
+        }
+
+        .ml-photo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: zoom-in;
+        }
+
+        .photo-counter-pill {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .btn-share-floating {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            color: #333;
+            border: 1px solid #ddd;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            font-size: 1rem;
+        }
+
+        .ml-thumbs-horizontal {
+            display: none;
+            gap: 8px;
+            margin-top: 12px;
+            overflow-x: auto;
+            width: 100%;
+            padding-bottom: 4px;
+        }
+
+        @media (max-width: 960px) {
+            .ml-thumbs-horizontal {
+                display: flex;
+            }
+        }
+
+        /* COLUNA 3: CAIXA DE COMPRA ESTILO MERCADO LIVRE / SHOPEE */
+        .ml-buy-box {
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .ml-condition-row {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .badge-oficial {
+            background: #e8f4fd;
+            color: var(--ml-blue);
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .ml-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #111;
+            line-height: 1.25;
+        }
+
+        .ml-rating-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .ml-rating-row i {
+            color: #FFB800;
+            font-size: 0.85rem;
+        }
+
+        .ml-price-block {
+            padding: 8px 0;
+        }
+
+        .ml-old-price {
+            font-size: 0.9rem;
+            color: #999;
+            text-decoration: line-through;
+        }
+
+        .ml-price-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .ml-price-main {
+            font-size: 2.2rem;
+            font-weight: 400;
+            color: #111;
+            letter-spacing: -0.5px;
+        }
+
+        .ml-discount-tag {
+            color: var(--ml-green);
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .ml-installments {
+            color: var(--ml-green);
+            font-size: 0.92rem;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* BENEFÍCIOS ESTILO MERCADO LIVRE */
+        .ml-perks {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px 0;
+            border-top: 1px solid #f0f0f0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ml-perk-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.88rem;
+        }
+
+        .ml-perk-item i {
+            color: var(--ml-green);
+            font-size: 1.05rem;
+            margin-top: 2px;
+        }
+
+        .ml-perk-item strong {
+            color: var(--ml-green);
+            display: block;
+        }
+
+        .ml-stock-status {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #111;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ml-stock-status i {
+            color: var(--ml-green);
+        }
+
+        /* BOTÕES DE AÇÃO */
+        .ml-btn-primary {
+            background-color: #25D366;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 16px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);
+        }
+
+        .ml-btn-primary:hover {
+            background-color: #1ebe5d;
+        }
+
+        .ml-btn-secondary {
+            background-color: rgba(52, 131, 250, 0.12);
+            color: var(--ml-blue);
+            border: none;
+            padding: 13px 16px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .ml-btn-secondary:hover {
+            background-color: rgba(52, 131, 250, 0.2);
+        }
+
+        .ml-trust-list {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .ml-trust-list div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ml-trust-list i {
+            color: var(--ml-blue);
+        }
+
+        /* FICHA TÉCNICA ESTILO MERCADO LIVRE (TABELA ZEBRADA) */
+        .ml-specs-section {
+            padding: 24px;
+            border-top: 1px solid #ebebeb;
+        }
+
+        .ml-specs-section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #111;
+        }
+
+        .ml-specs-table {
+            width: 100%;
+            max-width: 720px;
+            border-collapse: collapse;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #e5e5e5;
+        }
+
+        .ml-specs-table tr:nth-child(odd) {
+            background-color: #f5f5f5;
+        }
+
+        .ml-specs-table tr:nth-child(even) {
+            background-color: #ffffff;
+        }
+
+        .ml-specs-table th,
+        .ml-specs-table td {
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 0.92rem;
+        }
+
+        .ml-specs-table th {
+            width: 40%;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .ml-specs-table td {
+            color: #555;
+        }
+
+        /* BARRA FIXA INFERIOR NO CELULAR (ESTILO SHOPEE / MERCADO LIVRE APP) */
+        .mobile-sticky-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-top: 1px solid #e0e0e0;
+            padding: 10px 14px;
+            z-index: 999;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-sticky-bar {
+                display: flex;
+            }
+        }
+
+        .mobile-sticky-price {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mobile-sticky-price span {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .mobile-sticky-price strong {
+            font-size: 1.25rem;
+            color: #111;
+        }
+
+        .mobile-sticky-actions {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+            justify-content: flex-end;
+        }
+
+        .btn-sticky-share {
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .btn-sticky-whats {
+            background: #25D366;
+            color: #fff;
+            text-decoration: none;
+            padding: 11px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.92rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* LIGHTBOX */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .lightbox-overlay img {
+            max-width: 95vw;
+            max-height: 88vh;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            color: #fff;
+            font-size: 2rem;
+            cursor: pointer;
+        }
+
+        /* LOADING & ERROR */
+        .state-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 60px 20px;
+            text-align: center;
+            margin-top: 20px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+
+        .state-box i {
+            font-size: 3rem;
+            color: var(--ml-blue);
+            margin-bottom: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- TOPO ESTILO MERCADO LIVRE -->
+    <header class="ml-header">
+        <div class="ml-header-inner">
+            <a href="#" class="ml-brand">
+                <img src="images/favicon.jpg" alt="Canada Auto Peças">
+                <div class="ml-brand-text">
+                    <h1>CANADA AUTO PEÇAS</h1>
+                    <span><i class="fa-solid fa-circle-check"></i> Loja Oficial Verificada</span>
+                </div>
+            </a>
+            <div class="ml-header-badge">
+                <i class="fa-solid fa-shield-halved"></i> Compra Garantida
+            </div>
+        </div>
+    </header>
+
+    <!-- CAMINHO (BREADCRUMB) -->
+    <div class="ml-breadcrumb">
+        <span>Auto Peças</span>
+        <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem;"></i>
+        <span id="breadMarca">Montadora</span>
+        <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem;"></i>
+        <span id="breadNome" class="active">Carregando peça...</span>
+    </div>
+
+    <main class="ml-container">
+        <!-- CARREGANDO -->
+        <div id="loadingProduct" class="state-box">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <h2>Carregando anúncio da peça...</h2>
+            <p style="color:#666; margin-top:6px;">Buscando fotos e preço atualizado na Canada Auto Peças.</p>
+        </div>
+
+        <!-- ERRO -->
+        <div id="errorProduct" class="state-box" style="display: none;">
+            <i class="fa-solid fa-triangle-exclamation" style="color: #e74c3c;"></i>
+            <h2>Anúncio não encontrado</h2>
+            <p style="color:#666; margin-top:6px;">Esta peça pode já ter sido vendida ou o código informado não existe.</p>
+        </div>
+
+        <!-- VITRINE ESTILO MERCADO LIVRE / SHOPEE -->
+        <div id="productCard" class="ml-card" style="display: none;">
+            <div class="ml-grid">
+                <!-- Coluna 1: Miniaturas Verticais -->
+                <div id="thumbsVertical" class="ml-thumbs-vertical"></div>
+
+                <!-- Coluna 2: Foto Principal -->
+                <div class="ml-gallery-main">
+                    <div class="ml-photo-box">
+                        <span id="photoCounter" class="photo-counter-pill">1 / 1</span>
+                        <button id="btnShareFloat" class="btn-share-floating" title="Compartilhar anúncio">
+                            <i class="fa-solid fa-share-nodes"></i>
+                        </button>
+                        <img id="mainProductImg" src="images/favicon.jpg" alt="Foto da Peça">
+                    </div>
+                    <div id="thumbsHorizontal" class="ml-thumbs-horizontal"></div>
+                </div>
+
+                <!-- Coluna 3: Caixa de Compra -->
+                <div class="ml-buy-box">
+                    <div class="ml-condition-row">
+                        <span id="condicaoTexto">Peça Revisada | Pronta Entrega</span>
+                        <span class="badge-oficial">Cód. #<strong id="prodCodigo">000</strong></span>
+                    </div>
+
+                    <h1 id="prodNome" class="ml-title">Nome da Peça</h1>
+
+                    <div class="ml-rating-row">
+                        <span>5.0</span>
+                        <i class="fa-solid fa-star"></i>
+                        <i class="fa-solid fa-star"></i>
+                        <i class="fa-solid fa-star"></i>
+                        <i class="fa-solid fa-star"></i>
+                        <i class="fa-solid fa-star"></i>
+                        <span>(Peça Verificada)</span>
+                    </div>
+
+                    <div class="ml-price-block">
+                        <div class="ml-price-row">
+                            <span id="prodPreco" class="ml-price-main">R$ 0,00</span>
+                            <span class="ml-discount-tag"><i class="fa-brands fa-pix"></i> Preço Especial</span>
+                        </div>
+                        <div class="ml-installments">
+                            <i class="fa-regular fa-credit-card"></i> Consulte parcelamento e condições via WhatsApp
+                        </div>
+                    </div>
+
+                    <div class="ml-perks">
+                        <div class="ml-perk-item">
+                            <i class="fa-solid fa-truck-fast"></i>
+                            <div>
+                                <strong>Envio Rápido ou Retirada Imediata no Balcão</strong>
+                                <span style="color:#666;">Canada Auto Peças — Pronta entrega</span>
+                            </div>
+                        </div>
+                        <div class="ml-perk-item">
+                            <i class="fa-solid fa-check-double"></i>
+                            <div>
+                                <strong>Peça testada com procedência garantida</strong>
+                                <span style="color:#666;">Fotos reais do produto em estoque</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="availabilityBadge" class="ml-stock-status">
+                        <i class="fa-solid fa-circle-check"></i> Estoque disponível
+                    </div>
+
+                    <a id="btnWhatsappInteresse" href="#" target="_blank" class="ml-btn-primary">
+                        <i class="fa-brands fa-whatsapp" style="font-size: 1.25rem;"></i>
+                        Comprar / Negociar no WhatsApp
+                    </a>
+
+                    <button id="btnCopiarLinkCliente" class="ml-btn-secondary">
+                        <i class="fa-solid fa-link"></i> Copiar Link do Anúncio
+                    </button>
+
+                    <div class="ml-trust-list">
+                        <div><i class="fa-solid fa-shield-halved"></i> Atendimento direto com a loja Canada Auto Peças.</div>
+                        <div><i class="fa-solid fa-award"></i> Qualidade e compatibilidade verificadas pela equipe.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FICHA TÉCNICA ZEBRADA ESTILO MERCADO LIVRE -->
+            <div class="ml-specs-section">
+                <h3>Características do produto</h3>
+                <table class="ml-specs-table">
+                    <tbody>
+                        <tr>
+                            <th>Marca / Montadora</th>
+                            <td id="specMarca">-</td>
+                        </tr>
+                        <tr>
+                            <th>Código da Peça</th>
+                            <td id="specCodigo">-</td>
+                        </tr>
+                        <tr>
+                            <th>Nome do Produto</th>
+                            <td id="specNome">-</td>
+                        </tr>
+                        <tr>
+                            <th>Disponibilidade</th>
+                            <td id="specEstoque">Imediata</td>
+                        </tr>
+                        <tr>
+                            <th>Vendido por</th>
+                            <td><strong>Canada Auto Peças</strong> (Loja Oficial)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- BARRA FIXA NO CELULAR (ESTILO APP SHOPEE / MERCADO LIVRE) -->
+    <div id="mobileStickyBar" class="mobile-sticky-bar" style="display: none;">
+        <div class="mobile-sticky-price">
+            <span>Valor à vista</span>
+            <strong id="stickyPreco">R$ 0,00</strong>
+        </div>
+        <div class="mobile-sticky-actions">
+            <button id="btnStickyShare" class="btn-sticky-share" title="Compartilhar">
+                <i class="fa-solid fa-share-nodes"></i>
+            </button>
+            <a id="btnStickyWhats" href="#" target="_blank" class="btn-sticky-whats">
+                <i class="fa-brands fa-whatsapp"></i> Chamar no WhatsApp
+            </a>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX -->
+    <div id="photoLightbox" class="lightbox-overlay">
+        <span class="lightbox-close" id="closeLightbox"><i class="fa fa-times"></i></span>
+        <img id="lightboxImg" src="" alt="Foto Ampliada">
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const apiUrl = 'https://autopecascanada.onrender.com';
+            const params = new URLSearchParams(window.location.search);
+            const idParam = params.get('id') || params.get('codigo') || params.get('qr');
+
+            const loadingEl = document.getElementById('loadingProduct');
+            const errorEl = document.getElementById('errorProduct');
+            const cardEl = document.getElementById('productCard');
+            const stickyBar = document.getElementById('mobileStickyBar');
+
+            fetch(`${apiUrl}/ping`).catch(() => {});
+
+            function formatarMoeda(valor) {
+                const numero = parseFloat(String(valor || 0).replace(',', '.'));
+                if (isNaN(numero)) return 'Sob consulta';
+                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numero);
+            }
+
+            if (!idParam) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            function renderizarProduto(peca) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'none';
+                cardEl.style.display = 'block';
+                stickyBar.style.display = '';
+
+                const precoFmt = formatarMoeda(peca.preco);
+                const codigoRef = peca.id || idParam;
+                const linkCurtoCompartilhamento = `${apiUrl}/p/${encodeURIComponent(codigoRef)}`;
+
+                document.title = `${peca.nome || 'Peça'} - ${precoFmt} | Canada Auto Peças`;
+                document.getElementById('breadMarca').textContent = peca.marca || 'Multimarcas';
+                document.getElementById('breadNome').textContent = peca.nome || 'Peça Automotiva';
+
+                document.getElementById('prodNome').textContent = peca.nome || 'Peça Automotiva';
+                document.getElementById('prodCodigo').textContent = codigoRef;
+                document.getElementById('prodPreco').textContent = precoFmt;
+                document.getElementById('stickyPreco').textContent = precoFmt;
+
+                document.getElementById('specMarca').textContent = peca.marca || 'Original / Multimarcas';
+                document.getElementById('specCodigo').textContent = `#${codigoRef}`;
+                document.getElementById('specNome').textContent = peca.nome || '-';
+
+                const qtd = parseInt(peca.estoque ?? 1);
+                const badge = document.getElementById('availabilityBadge');
+                if (qtd > 0) {
+                    badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Estoque disponível a pronta entrega';
+                    document.getElementById('specEstoque').textContent = 'Pronta entrega em estoque';
+                } else {
+                    badge.innerHTML = '<i class="fa-solid fa-clock" style="color:#e67e22;"></i> Disponibilidade sob consulta';
+                    document.getElementById('specEstoque').textContent = 'Sob consulta';
+                }
+
+                let fotos = [];
+                if (peca.imagensUrls && peca.imagensUrls.length > 0) {
+                    fotos = peca.imagensUrls;
+                } else if (peca.imagemUrl) {
+                    fotos = [peca.imagemUrl];
+                }
+
+                const mainImg = document.getElementById('mainProductImg');
+                const thumbsVertical = document.getElementById('thumbsVertical');
+                const thumbsHorizontal = document.getElementById('thumbsHorizontal');
+                const photoCounter = document.getElementById('photoCounter');
+
+                thumbsVertical.innerHTML = '';
+                thumbsHorizontal.innerHTML = '';
+
+                if (fotos.length > 0) {
+                    mainImg.src = fotos[0];
+                    photoCounter.textContent = `1 / ${fotos.length}`;
+
+                    fotos.forEach((url, idx) => {
+                        const createThumb = () => {
+                            const div = document.createElement('div');
+                            div.className = `ml-thumb-item ${idx === 0 ? 'active' : ''}`;
+                            div.innerHTML = `<img src="${url}" alt="Foto ${idx + 1}">`;
+                            div.onclick = () => {
+                                mainImg.src = url;
+                                photoCounter.textContent = `${idx + 1} / ${fotos.length}`;
+                                document.querySelectorAll('.ml-thumb-item').forEach(el => el.classList.remove('active'));
+                                thumbsVertical.children[idx]?.classList.add('active');
+                                thumbsHorizontal.children[idx]?.classList.add('active');
+                            };
+                            return div;
+                        };
+                        thumbsVertical.appendChild(createThumb());
+                        thumbsHorizontal.appendChild(createThumb());
+                    });
+                } else {
+                    mainImg.src = 'images/favicon.jpg';
+                    photoCounter.textContent = '1 / 1';
+                }
+
+                mainImg.onclick = () => {
+                    document.getElementById('lightboxImg').src = mainImg.src;
+                    document.getElementById('photoLightbox').style.display = 'flex';
+                };
+
+                const textoWhats = `Olá! Vi este anúncio na *Canada Auto Peças* e tenho interesse:\n\n` +
+                    `🔧 *${peca.nome}*\n` +
+                    `💰 *Valor:* ${precoFmt}\n` +
+                    `🏷️ *Código:* #${codigoRef}\n` +
+                    `🚗 *Marca:* ${peca.marca || 'Multimarcas'}\n\n` +
+                    `${linkCurtoCompartilhamento}`;
+
+                const whatsHref = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhats)}`;
+                document.getElementById('btnWhatsappInteresse').href = whatsHref;
+                document.getElementById('btnStickyWhats').href = whatsHref;
+
+                const compartilharAnuncio = async () => {
+                    if (navigator.share) {
+                        try {
+                            await navigator.share({
+                                title: `${peca.nome} - ${precoFmt}`,
+                                text: `${peca.nome} por ${precoFmt} na Canada Auto Peças`,
+                                url: linkCurtoCompartilhamento
+                            });
+                            return;
+                        } catch (e) {}
+                    }
+                    await navigator.clipboard.writeText(linkCurtoCompartilhamento);
+                    alert('Link curto do anúncio copiado com sucesso!');
+                };
+
+                document.getElementById('btnCopiarLinkCliente').onclick = compartilharAnuncio;
+                document.getElementById('btnShareFloat').onclick = compartilharAnuncio;
+                document.getElementById('btnStickyShare').onclick = compartilharAnuncio;
+            }
+
+            try {
+                let pecaEncontrada = null;
+                const respDireta = await fetch(`${apiUrl}/pecas/${encodeURIComponent(idParam)}`);
+                if (respDireta.ok) {
+                    pecaEncontrada = await respDireta.json();
+                } else {
+                    const respLista = await fetch(`${apiUrl}/pecas`);
+                    if (respLista.ok) {
+                        const lista = await respLista.json();
+                        pecaEncontrada = lista.find(p =>
+                            String(p._id) === String(idParam) ||
+                            String(p.id) === String(idParam) ||
+                            String(p.qrToken) === String(idParam)
+                        );
+                    }
+                }
+
+                if (pecaEncontrada) {
+                    renderizarProduto(pecaEncontrada);
+                } else {
+                    loadingEl.style.display = 'none';
+                    errorEl.style.display = 'block';
+                }
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+            }
+
+            const lightbox = document.getElementById('photoLightbox');
+            document.getElementById('closeLightbox').onclick = () => lightbox.style.display = 'none';
+            lightbox.onclick = (e) => {
+                if (e.target === lightbox) lightbox.style.display = 'none';
+            };
+        });
+    </script>
+</body>
+
+</html>

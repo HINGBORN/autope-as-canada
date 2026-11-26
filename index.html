@@ -8,6 +8,11 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+    <!-- Biblioteca QRCode.js para geração instantânea de QR Codes únicos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Bibliotecas jsPDF e AutoTable para gerar o arquivo .PDF direto com 1 clique -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 
 <body>
@@ -23,7 +28,19 @@
                 <span>Sistema de Controle de Estoque</span>
             </div>
         </div>
-        <div class="user-profile">
+        <div class="user-profile header-actions">
+            <span id="serverStatusBadge" class="badge-server-online"
+                title="Bot Keep-Alive Ativo - Servidor Render Acordado">
+                <i class="fa-solid fa-bolt"></i> Servidor Ativo
+            </span>
+            <button id="btnAbrirModalApk" class="btn-download-apk-header"
+                title="Baixar Aplicativo Android Leitor de QR Code">
+                <i class="fa-brands fa-android"></i> Baixar App Android
+            </button>
+            <button id="btnZerarBanco" class="btn-reset-db"
+                title="Apagar todas as peças do banco de dados para reenviar do zero">
+                <i class="fa-solid fa-trash-can"></i> Zerar Banco
+            </button>
             <span class="badge-admin"><i class="fa-solid fa-user-shield"></i> Admin</span>
         </div>
     </header>
@@ -49,8 +66,14 @@
                         <option value="acima-500">Acima de R$ 500,00</option>
                     </select>
                 </div>
-                <button class="btn btn-add"><i class="fa fa-plus"></i> Adicionar Nova Peça <span
-                        style="font-size:0.75rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:3px; margin-left:5px;">F2</span></button>
+                <div class="toolbar-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button id="btnAbrirOrcamento" class="btn btn-orcamento">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Gerar Orçamento
+                        <span id="badgeCountOrcamento" class="badge-orcamento-count" style="display:none;">0</span>
+                    </button>
+                    <button class="btn btn-add"><i class="fa fa-plus"></i> Adicionar Nova Peça <span
+                            style="font-size:0.75rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:3px; margin-left:5px;">F2</span></button>
+                </div>
             </div>
 
             <!-- Empty State (Tela inicial vazia) -->
@@ -74,6 +97,7 @@
                 <table class="inventory-table">
                     <thead>
                         <tr>
+                            <th>Foto</th>
                             <th>Código</th>
                             <th>Nome da Peça</th>
                             <th>Marca</th>
@@ -110,6 +134,51 @@
                         <h3><i class="fa-solid fa-circle-info"></i> Informações Gerais</h3>
                         <div id="modalInfo" class="info-grid"></div>
                     </div>
+
+                    <!-- SEÇÃO QR CODE E COMPARTILHAMENTO PARA O CLIENTE -->
+                    <div class="panel-section qr-and-share-section">
+                        <h3><i class="fa-solid fa-qrcode"></i> Etiqueta QR Code & Link para Cliente</h3>
+                        <div class="qr-share-grid">
+                            <div class="qr-card-preview" id="etiquetaPrintArea">
+                                <div class="qr-label-header">CANADA AUTO PEÇAS</div>
+                                <div id="qrcodeContainer" class="qr-canvas-box"></div>
+                                <div class="qr-label-meta">
+                                    <strong id="qrLabelNome">Nome da Peça</strong>
+                                    <span id="qrLabelCodigo">Cód: #000</span>
+                                    <span id="qrLabelLocal">Local: -</span>
+                                </div>
+                            </div>
+
+                            <div class="qr-share-actions">
+                                <p class="qr-help-text">
+                                    <i class="fa-solid fa-mobile-screen-button"></i>
+                                    Ao ler este QR Code (pela câmera ou pelo <strong>App Android Canada Auto
+                                        Peças</strong>), abre direto a tela desta peça!
+                                </p>
+
+                                <div class="share-buttons-stack">
+                                    <button id="btnImprimirEtiqueta" class="btn-qr-action btn-print-qr">
+                                        <i class="fa-solid fa-print"></i> Imprimir Etiqueta QR Code
+                                    </button>
+                                    <button id="btnBaixarQrCode" class="btn-qr-action btn-download-qr">
+                                        <i class="fa-solid fa-download"></i> Baixar Imagem da Etiqueta (PNG)
+                                    </button>
+                                    <hr class="share-divider">
+                                    <button id="btnEnviarWhatsCliente" class="btn-qr-action btn-whatsapp-share">
+                                        <i class="fa-brands fa-whatsapp"></i> Enviar Link com Foto e Preço no WhatsApp
+                                    </button>
+                                    <button id="btnCopiarLinkProduto" class="btn-qr-action btn-copy-link">
+                                        <i class="fa-solid fa-link"></i> Copiar Link da Página do Cliente
+                                    </button>
+                                    <a id="btnAbrirPaginaCliente" href="#" target="_blank"
+                                        class="btn-qr-action btn-open-public">
+                                        <i class="fa-solid fa-up-right-from-square"></i> Visualizar Página do Cliente
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="panel-section">
                         <h3><i class="fa-solid fa-camera"></i> Fotos do Produto</h3>
                         <div id="modalImagens" class="gallery-container"></div>
@@ -164,13 +233,18 @@
                 </div>
             </div>
 
-            <div class="side-panel-footer">
-                <button id="btnHabilitarEdicao" class="btn btn-edit-panel"><i class="fa fa-pencil"></i> Editar
-                    Peça</button>
-                <button id="btnSalvarEdicao" class="btn btn-save-panel" style="display: none;"><i
-                        class="fa fa-check"></i> Salvar</button>
-                <button id="btnCancelarEdicao" class="btn btn-cancel-panel" style="display: none;"><i
-                        class="fa fa-times"></i> Cancelar</button>
+            <div class="side-panel-footer" style="justify-content: space-between;">
+                <button id="btnExcluirPecaModal" class="btn btn-cancel-panel" title="Apagar esta peça do banco de dados">
+                    <i class="fa fa-trash"></i> Excluir Peça
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button id="btnHabilitarEdicao" class="btn btn-edit-panel"><i class="fa fa-pencil"></i> Editar
+                        Peça</button>
+                    <button id="btnSalvarEdicao" class="btn btn-save-panel" style="display: none;"><i
+                            class="fa fa-check"></i> Salvar</button>
+                    <button id="btnCancelarEdicao" class="btn btn-cancel-panel" style="display: none; background:#555;"><i
+                            class="fa fa-times"></i> Cancelar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -229,9 +303,267 @@
 
             <div class="side-panel-footer">
                 <button id="btnSalvarNovaPeca" class="btn btn-save-panel"><i class="fa fa-check"></i> Finalizar
-                    Cadastro</button>
+                    Cadastro & Gerar QR Code</button>
                 <button id="btnCancelarNovaPeca" class="btn btn-cancel-panel"><i class="fa fa-times"></i>
                     Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DOWNLOAD FÁCIL DO APLICATIVO ANDROID (1 CLIQUE OU QR CODE) -->
+    <div id="apkDownloadModal" class="side-panel-overlay">
+        <div class="side-panel" style="max-width: 520px;">
+            <div class="side-panel-header">
+                <h2><i class="fa-brands fa-android" style="color: #2ecc71;"></i> Instalar App Leitor QR Code</h2>
+                <span class="close-btn" id="fecharApkModal"><i class="fa fa-times"></i></span>
+            </div>
+            <div class="side-panel-content">
+                <div class="panel-section" style="background: rgba(255,255,255,0.94); text-align: center; margin-bottom: 0;">
+                    <p style="color: #111; font-weight: 700; font-size: 1.02rem; margin-bottom: 10px;">
+                        Aponte a câmera do celular para o QR Code abaixo ou clique no botão para baixar direto (sem precisar de .zip!):
+                    </p>
+
+                    <div id="qrCodeDownloadApk" style="display: inline-block; padding: 14px; background: #fff; border: 3px solid #1a1a1a; border-radius: 12px; margin: 8px 0 14px 0;"></div>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+                        <a id="linkDiretoApk" href="https://github.com/HINGBORN/autope-as-canada/raw/main/CanadaAutoPecas.apk" target="_blank" class="btn-qr-action" style="background: #2ecc71; color: #fff; font-size: 1rem; padding: 13px;">
+                            <i class="fa-solid fa-download"></i> Baixar CanadaAutoPecas.apk Direto
+                        </a>
+                        <button id="btnEnviarApkWhats" class="btn-qr-action" style="background: #1a1a1a; color: var(--cor-amarelo);">
+                            <i class="fa-brands fa-whatsapp"></i> Enviar Link de Download para o Celular no WhatsApp
+                        </button>
+                    </div>
+
+                    <div style="text-align: left; background: #f8f9fa; border-left: 4px solid #2ecc71; padding: 10px 12px; border-radius: 6px; font-size: 0.84rem; color: #333;">
+                        <strong><i class="fa-solid fa-shield-halved"></i> Dica ao instalar no Android:</strong>
+                        <p style="margin-top: 4px;">
+                            Nosso APK agora é <strong>assinado digitalmente com certificado oficial V2/V3</strong>. Caso o Play Protect mostre um aviso na 1ª vez (por ser um app interno da loja fora da Play Store), basta tocar em <strong>"Mais detalhes"</strong> &rarr; <strong>"Instalar mesmo assim"</strong>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL GERADOR DE ORÇAMENTO COMPLETO (ESTILO FOLHA COMANDO / CANADA AUTO PEÇAS) -->
+    <div id="orcamentoModal" class="side-panel-overlay">
+        <div class="side-panel side-panel-orcamento">
+            <div class="side-panel-header">
+                <h2><i class="fa-solid fa-file-invoice-dollar"></i> Gerador de Orçamento - Canada Auto Peças</h2>
+                <span class="close-btn" id="fecharOrcamentoTop"><i class="fa fa-times"></i></span>
+            </div>
+
+            <div class="side-panel-content">
+                <!-- 1. DADOS DO CABEÇALHO / CLIENTE / VEÍCULO -->
+                <div class="panel-section" style="background: rgba(255,255,255,0.92);">
+                    <h3><i class="fa-solid fa-user-tag"></i> Dados do Orçamento, Cliente e Veículo</h3>
+                    <div class="form-grid orc-grid-4">
+                        <div class="form-group">
+                            <label>Nº Orçamento</label>
+                            <input type="text" id="orcNumero" class="form-control" placeholder="Ex: 19078">
+                        </div>
+                        <div class="form-group">
+                            <label>Nº OS (Opcional)</label>
+                            <input type="text" id="orcOS" class="form-control" placeholder="Ex: 26089">
+                        </div>
+                        <div class="form-group">
+                            <label>Vendedor</label>
+                            <input type="text" id="orcVendedor" class="form-control" placeholder="Ex: Arthur">
+                        </div>
+                        <div class="form-group">
+                            <label>Validade</label>
+                            <input type="text" id="orcValidade" class="form-control" placeholder="Ex: 7 dias">
+                        </div>
+
+                        <div class="form-group span-2">
+                            <label>Nome do Cliente</label>
+                            <input type="text" id="orcClienteNome" class="form-control" placeholder="Ex: Robson Alexandre">
+                        </div>
+                        <div class="form-group">
+                            <label>CPF / CNPJ</label>
+                            <input type="text" id="orcClienteDoc" class="form-control" placeholder="000.000.000-00">
+                        </div>
+                        <div class="form-group">
+                            <label>Telefone / Celular</label>
+                            <input type="text" id="orcClienteFone" class="form-control" placeholder="(44) 99999-9999">
+                        </div>
+
+                        <div class="form-group span-3">
+                            <label>Endereço / Cidade</label>
+                            <input type="text" id="orcClienteEndereco" class="form-control" placeholder="Rua, Número - Cidade/UF">
+                        </div>
+                        <div class="form-group">
+                            <label>CEP</label>
+                            <input type="text" id="orcClienteCep" class="form-control" placeholder="87000-000">
+                        </div>
+
+                        <div class="form-group span-2">
+                            <label>Veículo / Modelo</label>
+                            <input type="text" id="orcVeiculoModelo" class="form-control" placeholder="Ex: Fiat Strada Working 1.4">
+                        </div>
+                        <div class="form-group">
+                            <label>Placa</label>
+                            <input type="text" id="orcVeiculoPlaca" class="form-control" placeholder="ABC-1D23">
+                        </div>
+                        <div class="form-group">
+                            <label>Ano / Modelo</label>
+                            <input type="text" id="orcVeiculoAno" class="form-control" placeholder="2018 / 2019">
+                        </div>
+                        <div class="form-group">
+                            <label>Km</label>
+                            <input type="text" id="orcVeiculoKm" class="form-control" placeholder="Ex: 120000">
+                        </div>
+                        <div class="form-group">
+                            <label>Combustível</label>
+                            <input type="text" id="orcVeiculoCombustivel" class="form-control" placeholder="Flex / Gasolina">
+                        </div>
+                        <div class="form-group span-2">
+                            <label>Chassi (Opcional)</label>
+                            <input type="text" id="orcVeiculoChassi" class="form-control" placeholder="Opcional">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. ADICIONAR PEÇA CADASTRADA NO ESTOQUE -->
+                <div class="panel-section" style="background: rgba(255,255,255,0.92);">
+                    <h3><i class="fa-solid fa-boxes-stacked"></i> 1. Adicionar Peça Cadastrada do Estoque</h3>
+                    <div class="orc-add-row">
+                        <div class="form-group" style="flex: 3; min-width: 220px;">
+                            <label>Pesquisar Peça do Estoque (por nome ou código)</label>
+                            <input type="text" id="orcBuscaEstoqueInput" class="form-control" list="orcEstoqueDatalist" placeholder="Digite o código ou nome da peça cadastrada...">
+                            <datalist id="orcEstoqueDatalist"></datalist>
+                        </div>
+                        <div class="form-group" style="width: 90px;">
+                            <label>Qtd.</label>
+                            <input type="number" id="orcEstoqueQtd" class="form-control" value="1" min="1">
+                        </div>
+                        <div class="form-group" style="width: 120px;">
+                            <label>Desconto (R$)</label>
+                            <input type="text" id="orcEstoqueDesc" class="form-control" value="0,00">
+                        </div>
+                        <button type="button" id="btnAddPecaEstoqueOrc" class="btn btn-save-panel" style="height: 41px; align-self: flex-end;">
+                            <i class="fa fa-plus"></i> Incluir do Estoque
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. ADICIONAR PEÇA AVULSA (QUE NÃO TEM NO ESTOQUE) -->
+                <div class="panel-section" style="background: rgba(255,255,255,0.92);">
+                    <h3><i class="fa-solid fa-cart-plus"></i> 2. Adicionar Peça Avulsa (Fora do Estoque) ou Serviço</h3>
+                    <div class="orc-add-row">
+                        <div class="form-group" style="width: 110px;">
+                            <label>Tipo</label>
+                            <select id="orcAvulsoTipo" class="form-control">
+                                <option value="produto">Peça</option>
+                                <option value="servico">Serviço</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="width: 100px;">
+                            <label>Código</label>
+                            <input type="text" id="orcAvulsoCodigo" class="form-control" placeholder="Avulso">
+                        </div>
+                        <div class="form-group" style="flex: 2; min-width: 180px;">
+                            <label>Descrição da Peça ou Serviço *</label>
+                            <input type="text" id="orcAvulsoNome" class="form-control" placeholder="Ex: Kit Amortecedor Diant...">
+                        </div>
+                        <div class="form-group" style="width: 80px;">
+                            <label>Qtd/Tempo</label>
+                            <input type="number" id="orcAvulsoQtd" class="form-control" value="1" min="1">
+                        </div>
+                        <div class="form-group" style="width: 115px;">
+                            <label>Vlr. Unit (R$) *</label>
+                            <input type="text" id="orcAvulsoPreco" class="form-control" placeholder="0,00">
+                        </div>
+                        <div class="form-group" style="width: 105px;">
+                            <label>Desc. (R$)</label>
+                            <input type="text" id="orcAvulsoDesc" class="form-control" value="0,00">
+                        </div>
+                        <button type="button" id="btnAddPecaAvulsaOrc" class="btn btn-edit-panel" style="height: 41px; align-self: flex-end; background:#1a1a1a; color:var(--cor-amarelo);">
+                            <i class="fa fa-plus"></i> Adicionar Avulso
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. LISTA DE ITENS DO ORÇAMENTO -->
+                <div class="panel-section" style="background: rgba(255,255,255,0.96);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;">
+                        <h3 style="margin-bottom:0; border:none;"><i class="fa-solid fa-list-check"></i> Itens Incluídos no Orçamento</h3>
+                        <button type="button" id="btnLimparItensOrc" class="btn-reset-db" style="background:#e74c3c; color:#fff; border:none;">
+                            <i class="fa fa-trash"></i> Limpar Todos os Itens
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper" style="background:#fff;">
+                        <table class="orc-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Qtd</th>
+                                    <th>Vlr. Unit.</th>
+                                    <th>Desc.</th>
+                                    <th>Valor Total</th>
+                                    <th>Remover</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orcTabelaItensBody">
+                                <tr><td colspan="8" style="text-align:center; color:#777;">Nenhum item adicionado ao orçamento ainda.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="orc-totais-bar">
+                        <div>Subtotal Bruto: <strong id="orcSubtotalBruto">R$ 0,00</strong></div>
+                        <div>Total Descontos: <strong id="orcTotalDescontos" style="color:#e74c3c;">R$ 0,00</strong></div>
+                        <div class="orc-total-liquido">VALOR TOTAL DO ORÇAMENTO: <strong id="orcValorTotalFinal">R$ 0,00</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-panel-footer" style="flex-wrap: wrap; justify-content: space-between;">
+                <button type="button" id="btnFecharOrcamentoFooter" class="btn btn-cancel-panel">
+                    <i class="fa fa-times"></i> Fechar
+                </button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" id="btnGerarPdfDireto" class="btn" style="background:#25D366; color:#fff;">
+                        <i class="fa-solid fa-file-pdf"></i> Baixar PDF Direto (Para Enviar no WhatsApp)
+                    </button>
+                    <button type="button" id="btnImprimirOrcamento" class="btn" style="background:#1a1a1a; color:var(--cor-amarelo);">
+                        <i class="fa-solid fa-print"></i> Imprimir Folha A4
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO PARA APAGAR BANCO DE DADOS -->
+    <div id="resetDbModal" class="side-panel-overlay">
+        <div class="side-panel">
+            <div class="side-panel-header" style="border-bottom: 2px solid var(--cor-vermelho);">
+                <h2 style="color: #ff6b6b;"><i class="fa-solid fa-triangle-exclamation"></i> Limpar Banco de Dados</h2>
+                <span class="close-btn" id="fecharResetModal"><i class="fa fa-times"></i></span>
+            </div>
+            <div class="side-panel-content">
+                <div class="panel-section" style="background: rgba(255,255,255,0.88);">
+                    <p style="color: #111; font-weight: 600; margin-bottom: 12px;">
+                        Você está prestes a apagar <strong>TODAS as peças</strong> cadastradas no MongoDB para reenviar
+                        o estoque novo.
+                    </p>
+                    <p style="color: #444; font-size: 0.9rem; margin-bottom: 15px;">
+                        Para confirmar a exclusão total, digite <strong>ZERAR</strong> no campo abaixo:
+                    </p>
+                    <input type="text" id="inputConfirmarZerar" class="form-control"
+                        placeholder="Digite ZERAR para confirmar" autocomplete="off">
+                </div>
+            </div>
+            <div class="side-panel-footer">
+                <button id="btnConfirmarZerarBanco" class="btn btn-cancel-panel">
+                    <i class="fa-solid fa-trash-can"></i> Apagar Todas as Peças Agora
+                </button>
+                <button id="btnCancelarZerarBanco" class="btn btn-edit-panel">
+                    Cancelar
+                </button>
             </div>
         </div>
     </div>
